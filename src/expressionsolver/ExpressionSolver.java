@@ -112,31 +112,7 @@ public class ExpressionSolver {
      * @return
      */
     public ADD encodeFormula(String formula) {
-        JEP parser = makeADDParser(jadd);
-        parser.parseExpression(formula);
-        if (parser.hasError()) {
-            LOGGER.warning("Parser error: " + parser.getErrorInfo());
-            return null;
-        }
-
-        parser.addVariableAsObject("true", jadd.makeConstant(1));
-        parser.addVariableAsObject("True", jadd.makeConstant(1));
-        parser.addVariableAsObject("false", jadd.makeConstant(0));
-        parser.addVariableAsObject("False", jadd.makeConstant(0));
-        SymbolTable symbolTable = parser.getSymbolTable();
-        @SuppressWarnings("unchecked")
-        Set<String> variables = new HashSet<String>(symbolTable.keySet());
-        variables.remove("true");
-        variables.remove("True");
-        variables.remove("false");
-        variables.remove("False");
-
-        for (Object var : variables) {
-            String varName = (String) var;
-            ADD variable = jadd.getVariable(varName);
-            parser.addVariableAsObject(varName, variable);
-        }
-        return (ADD) parser.getValueAsObject();
+    	return new FormulaEncoder(this).encodeFormula(formula);
     }
 
     /**
@@ -157,6 +133,10 @@ public class ExpressionSolver {
             return null;
         }
         return new Expression<Double>(parser, Double.class);
+    }
+    
+    public JADD getJADD() {
+    	return this.jadd;
     }
 
     /**
@@ -181,7 +161,7 @@ public class ExpressionSolver {
     /**
      * @param jadd
      */
-    private JEP makeADDParser(JADD jadd) {
+    public JEP makeADDParser(JADD jadd) {
         JEP parser = new JEP(false, true, true, new ADDNumberFactory(jadd));
         parser.addFunction("\"+\"", new ADDAdd());
         parser.addFunction("\"-\":2", new ADDSubtract());
