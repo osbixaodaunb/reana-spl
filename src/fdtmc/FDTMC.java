@@ -209,9 +209,13 @@ public class FDTMC {
 				Iterator <Transition> itTransitions = transitionList.iterator();
 				while (itTransitions.hasNext()) {
 					Transition t = itTransitions.next();
-					msg += temp.getVariableName() + "=" + temp.getIndex() + ((temp.getLabel() != null) ? "(" + temp.getLabel() + ")" : "") +
-							" --- " + t.getActionName() + " / " + t.getProbability() +
-							" ---> " + t.getTarget().getVariableName() + "=" + t.getTarget().getIndex() + ((t.getTarget().getLabel() != null) ? "(" + t.getTarget().getLabel() + ")" : "") + "\n";
+					String stateMsg = temp.getVariableName() + "=" + temp.getIndex() + ((temp.getLabel() != null) ? "(" + temp.getLabel() + ")" : "");
+					String transitionNameProbabilityMsg = t.getActionName() + " / " + t.getProbability();
+					String transitionTargetNameMsg = t.getTarget().getVariableName();
+					String transitionTargetLabelMsg = t.getTarget().getIndex() + ((t.getTarget().getLabel() != null) ? "(" + t.getTarget().getLabel() + ")" : "");
+					msg +=  stateMsg + " --- " + transitionNameProbabilityMsg + " ---> " + 
+							transitionTargetNameMsg + "=" + transitionTargetLabelMsg +  "\n";
+							
 				}
 			}
 		}
@@ -232,12 +236,18 @@ public class FDTMC {
 	        FDTMC other = (FDTMC) obj;
 	        LinkedList<List<Interface>> thisInterfaces = new LinkedList<List<Interface>>(interfaces.values());
             LinkedList<List<Interface>> otherInterfaces = new LinkedList<List<Interface>>(other.interfaces.values());
-            return states.equals(other.states)
-	                && getInitialState().equals(other.getInitialState())
-	                && getSuccessState().equals(other.getSuccessState())
-	                && getErrorState().equals(other.getErrorState())
-	                && transitionSystem.equals(other.transitionSystem)
-	                && thisInterfaces.equals(otherInterfaces);
+            final boolean isState = states.equals(other.states);
+            final boolean isInitialState = getInitialState().equals(other.getInitialState());
+            final boolean isSuccessState = getSuccessState().equals(other.getSuccessState());
+            final boolean isErrorState = getErrorState().equals(other.getErrorState());
+            final boolean isTransitionSystem = transitionSystem.equals(other.transitionSystem);
+            final boolean isInterface = thisInterfaces.equals(otherInterfaces);
+            return isState
+	                && isInitialState
+	                && isSuccessState
+	                && isErrorState
+	                && isTransitionSystem
+	                && isInterface;
 	    }
 	    return false;
 	}
