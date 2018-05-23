@@ -23,8 +23,8 @@ public class FDTMC {
     private State errorState;
 	private String variableName;
 	private int index;
-	private Map<State, List<Transition>> transitionSystem;
 	private Map<String, List<Interface>> interfaces;
+	private TransitionManager transitionManager;
 
 
 	public FDTMC() {
@@ -32,8 +32,8 @@ public class FDTMC {
 		initialState = null;
 		variableName = null;
 		index = 0;
-		transitionSystem = new LinkedHashMap<State, List<Transition>>();
 		interfaces = new LinkedHashMap<String, List<Interface>>();
+		transitionManager = new TransitionManager(this);
 	}
 
 	public Collection<State> getStates() {
@@ -57,7 +57,7 @@ public class FDTMC {
 		temp.setVariableName(variableName);
 		temp.setIndex(index);
 		states.add(temp);
-		transitionSystem.put(temp, null);
+		transitionManager.getTransitionSystem().put(temp, null);
 		if (index == 0)
 			initialState = temp;
 		index++;
@@ -119,19 +119,7 @@ public class FDTMC {
     }
 
 	public Transition createTransition(State source, State target, String action, String reliability) {
-	    if (source == null) {
-	        return null;
-	    }
-
-	    List<Transition> l = transitionSystem.get(source);
-		if (l == null) {
-			l = new LinkedList<Transition>();
-		}
-
-		Transition newTransition = new Transition(source, target, action, reliability);
-		boolean success = l.add(newTransition);
-		transitionSystem.put(source, l);
-		return success ? newTransition : null;
+	    return transitionManager.createTransition(source, target, action, reliability);
 	}
 
 	/**
@@ -178,31 +166,18 @@ public class FDTMC {
 	}
 
 	public Transition getTransitionByActionName(String action) {
-		//para cada Lista de adjacencias de cada nodo
-		Collection<List<Transition>> stateAdjacencies = transitionSystem.values();
-		Iterator<List<Transition>> iteratorStateAdjacencies = stateAdjacencies.iterator();
-		while (iteratorStateAdjacencies.hasNext()) {
-			List<Transition> transitions = iteratorStateAdjacencies.next();
-			Iterator <Transition> iteratorTransitions = transitions.iterator();
-			//Percorrer a lista de transicoes e comparar os labels das transicoes
-			while (iteratorTransitions.hasNext()) {
-				Transition t = iteratorTransitions.next();
-				if (t.getActionName().equals(action))
-					return t;
-			}
-		}
-		return null;
+		return transitionManager.getTransitionByActionName(action);
 	}
 
 	@Override
 	public String toString() {
 		String msg = new String();
 
-		Set<State> tmpStates = this.transitionSystem.keySet();
+		Set<State> tmpStates = transitionManager.getTransitionSystem().keySet();
 		Iterator <State> itStates = tmpStates.iterator();
 		while (itStates.hasNext()) {
 			State temp = itStates.next();
-			List<Transition> transitionList = this.transitionSystem.get(temp);
+			List<Transition> transitionList = transitionManager.getTransitionSystem().get(temp);
 			if (transitionList != null) {
 				Iterator <Transition> itTransitions = transitionList.iterator();
 				while (itTransitions.hasNext()) {
@@ -238,7 +213,7 @@ public class FDTMC {
             final boolean isInitialState = getInitialState().equals(other.getInitialState());
             final boolean isSuccessState = getSuccessState().equals(other.getSuccessState());
             final boolean isErrorState = getErrorState().equals(other.getErrorState());
-            final boolean isTransitionSystem = transitionSystem.equals(other.transitionSystem);
+            final boolean isTransitionSystem = transitionManager.getTransitionSystem().equals(other.transitionManager.getTransitionSystem());
             final boolean isInterface = thisInterfaces.equals(otherInterfaces);
             return isState
 	                && isInitialState
@@ -252,11 +227,11 @@ public class FDTMC {
 
 	@Override
     public int hashCode() {
-        return states.hashCode() + transitionSystem.hashCode() + interfaces.hashCode();
+        return states.hashCode() + transitionManager.getTransitionSystem().hashCode() + interfaces.hashCode();
     }
 
     public Map<State, List<Transition>> getTransitions() {
-		return transitionSystem;
+		return transitionManager.getTransitionSystem();
 	}
 
 	/**
@@ -344,7 +319,7 @@ public class FDTMC {
         Map<State, State> statesMapping = destination.inlineStates(this);
         setCommonStates(destination, statesMapping);
 
-        destination.inlineTransitions(this, statesMapping);
+        destination.transitionManager.inlineTransitions(this, statesMapping);
         return statesMapping;
     }
 
@@ -359,7 +334,7 @@ public class FDTMC {
         Map<State, State> statesMapping = copied.inlineStates(this);
         setCommonStates(copied, statesMapping);
 
-        copied.inlineTransitions(this, statesMapping);
+        copied.transitionManager.inlineTransitions(this, statesMapping);
         copied.inlineInterfaces(this, statesMapping);
         return copied;
     }
@@ -385,35 +360,6 @@ public class FDTMC {
     }
 
     /**
-     * Inlines all transitions from {@code fdtmc} that are not part of an interface.
-     *
-     * @param fdtmc
-     * @param statesOldToNew
-     */
-    private void inlineTransitions(FDTMC fdtmc, Map<State, State> statesOldToNew) {
-        Set<Transition> interfaceTransitions = fdtmc.getInterfaceTransitions();
-        for (Map.Entry<State, List<Transition>> entry : fdtmc.getTransitions().entrySet()) {
-            List<Transition> transitions = entry.getValue();
-            if (transitions != null) {
-                for (Transition transition : transitions) {
-                    if (!interfaceTransitions.contains(transition)) {
-                        inlineTransition(transition, statesOldToNew);
-                    }
-                }
-            }
-        }
-    }
-
-    private Transition inlineTransition(Transition transition, Map<State, State> statesOldToNew) {
-        State newSource = statesOldToNew.get(transition.getSource());
-        State newTarget = statesOldToNew.get(transition.getTarget());
-        return createTransition(newSource,
-                                newTarget,
-                                transition.getActionName(),
-                                transition.getProbability());
-    }
-
-    /**
      * Inlines all interfaces (and respective transitions) from {@code fdtmc}
      * into this one.
      *
@@ -425,8 +371,8 @@ public class FDTMC {
             List<Interface> newInterfaces = new LinkedList<Interface>();
             this.interfaces.put(entry.getKey(), newInterfaces);
             for (Interface iface : entry.getValue()) {
-                Transition successTransition = inlineTransition(iface.getSuccessTransition(), statesOldToNew);
-                Transition errorTransition = inlineTransition(iface.getErrorTransition(), statesOldToNew);
+                Transition successTransition = transitionManager.inlineTransition(iface.getSuccessTransition(), statesOldToNew);
+                Transition errorTransition = transitionManager.inlineTransition(iface.getErrorTransition(), statesOldToNew);
                 Interface newInterface = new Interface(iface.getAbstractedId(),
                                                        statesOldToNew.get(iface.getInitial()),
                                                        statesOldToNew.get(iface.getSuccess()),
@@ -440,7 +386,7 @@ public class FDTMC {
 
     private void inlineInInterface(Interface iface, FDTMC fragment, Map<State, State> statesMapping) {
         Map<State, State> fragmentStatesMapping = this.inlineStates(fragment);
-        this.inlineTransitions(fragment, fragmentStatesMapping);
+        transitionManager.inlineTransitions(fragment, fragmentStatesMapping);
 
         State initialInlined = iface.getInitial();
         State initialFragment = fragment.getInitialState();
@@ -464,15 +410,8 @@ public class FDTMC {
                                   "1");
         }
     }
-
-    private Set<Transition> getInterfaceTransitions() {
-        Set<Transition> transitions = new HashSet<Transition>();
-        interfaces.values().stream().flatMap(List<Interface>::stream)
-                .forEach(iface -> {
-                    transitions.add(iface.getSuccessTransition());
-                    transitions.add(iface.getErrorTransition());
-                });
-        return transitions;
+    
+    public Map<String, List<Interface>> getInterfaces(){
+    	return this.interfaces;
     }
-
 }
