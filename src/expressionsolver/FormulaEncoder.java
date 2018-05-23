@@ -28,23 +28,35 @@ public class FormulaEncoder {
 	        return null;
 	    }
 	
-	    parser.addVariableAsObject("true", expSolver.getJADD().makeConstant(1));
+	    addParserDefaultVariables();
+	    symbolTable = parser.getSymbolTable();
+	    
+	    updateVariables();
+	    fillParserWithVariables();
+	    
+	    return (ADD) parser.getValueAsObject();
+	}
+
+	private void addParserDefaultVariables() {
+		parser.addVariableAsObject("true", expSolver.getJADD().makeConstant(1));
 	    parser.addVariableAsObject("True", expSolver.getJADD().makeConstant(1));
 	    parser.addVariableAsObject("false", expSolver.getJADD().makeConstant(0));
 	    parser.addVariableAsObject("False", expSolver.getJADD().makeConstant(0));
-	    symbolTable = parser.getSymbolTable();
-	    
-	    this.variables = new HashSet<String>(symbolTable.keySet());
-	    this.variables.remove("true");
-	    this.variables.remove("True");
-	    this.variables.remove("false");
-	    this.variables.remove("False");
-	
-	    for (Object var : this.variables) {
+	}
+
+	private void fillParserWithVariables() {
+		for (Object var : this.variables) {
 	        String varName = (String) var;
 	        ADD variable = expSolver.getJADD().getVariable(varName);
 	        parser.addVariableAsObject(varName, variable);
 	    }
-	    return (ADD) parser.getValueAsObject();
+	}
+
+	private void updateVariables() {
+		this.variables = new HashSet<String>(symbolTable.keySet());
+	    this.variables.remove("true");
+	    this.variables.remove("True");
+	    this.variables.remove("false");
+	    this.variables.remove("False");
 	}
 }
