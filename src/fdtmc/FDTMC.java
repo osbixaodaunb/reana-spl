@@ -183,9 +183,8 @@ public class FDTMC {
 		Iterator<List<Transition>> iteratorStateAdjacencies = stateAdjacencies.iterator();
 		while (iteratorStateAdjacencies.hasNext()) {
 			List<Transition> transitions = iteratorStateAdjacencies.next();
-
-			//Percorrer a lista de transicoes e comparar os labels das transicoes
 			Iterator <Transition> iteratorTransitions = transitions.iterator();
+			//Percorrer a lista de transicoes e comparar os labels das transicoes
 			while (iteratorTransitions.hasNext()) {
 				Transition t = iteratorTransitions.next();
 				if (t.getActionName().equals(action))
@@ -194,7 +193,6 @@ public class FDTMC {
 		}
 		return null;
 	}
-
 
 	@Override
 	public String toString() {
@@ -344,9 +342,7 @@ public class FDTMC {
         destination.variableName = this.getVariableName();
 
         Map<State, State> statesMapping = destination.inlineStates(this);
-        destination.setInitialState(statesMapping.get(this.getInitialState()));
-        destination.setSuccessState(statesMapping.get(this.getSuccessState()));
-        destination.setErrorState(statesMapping.get(this.getErrorState()));
+        setCommonStates(destination, statesMapping);
 
         destination.inlineTransitions(this, statesMapping);
         return statesMapping;
@@ -361,14 +357,18 @@ public class FDTMC {
         copied.variableName = this.getVariableName();
 
         Map<State, State> statesMapping = copied.inlineStates(this);
-        copied.setInitialState(statesMapping.get(this.getInitialState()));
-        copied.setSuccessState(statesMapping.get(this.getSuccessState()));
-        copied.setErrorState(statesMapping.get(this.getErrorState()));
+        setCommonStates(copied, statesMapping);
 
         copied.inlineTransitions(this, statesMapping);
         copied.inlineInterfaces(this, statesMapping);
         return copied;
     }
+
+	private void setCommonStates(FDTMC copied, Map<State, State> statesMapping) {
+		copied.setInitialState(statesMapping.get(this.getInitialState()));
+        copied.setSuccessState(statesMapping.get(this.getSuccessState()));
+        copied.setErrorState(statesMapping.get(this.getErrorState()));
+	}
 
     /**
      * Inlines all states from {@code fdtmc} stripped of their labels.
