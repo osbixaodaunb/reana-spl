@@ -61,36 +61,8 @@ public class ParamWrapper implements ParametricModelChecker {
 	private String evaluate(String modelString, String property, ParamModel model) {
 		try {
 		    LOGGER.finer(modelString);
-			File modelFile = File.createTempFile("model", "param");
-			FileWriter modelWriter = new FileWriter(modelFile);
-			modelWriter.write(modelString);
-			modelWriter.flush();
-			modelWriter.close();
-
-			File propertyFile = File.createTempFile("property", "prop");
-			FileWriter propertyWriter = new FileWriter(propertyFile);
-			propertyWriter.write(property);
-			propertyWriter.flush();
-			propertyWriter.close();
-
-			File resultsFile = File.createTempFile("result", null);
-
-			String formula;
-			long startTime = System.nanoTime();
-			if (usePrism && !modelString.contains("const")) {
-			    formula = invokeModelChecker(modelFile.getAbsolutePath(),
-			                                 propertyFile.getAbsolutePath(),
-			                                 resultsFile.getAbsolutePath());
-			} else if(usePrism) {
-			    formula = invokeParametricPRISM(model,
-			                                    modelFile.getAbsolutePath(),
-                                                propertyFile.getAbsolutePath(),
-                                                resultsFile.getAbsolutePath());
-			} else {
-			    formula = invokeParametricModelChecker(modelFile.getAbsolutePath(),
-			                                           propertyFile.getAbsolutePath(),
-			                                           resultsFile.getAbsolutePath());
-			}
+		    long startTime = System.nanoTime();
+			String formula = getCurrentFormula(modelString, property, model);
 			long elapsedTime = System.nanoTime() - startTime;
             modelCollector.collectModelCheckingTime(elapsedTime);
 			return formula.trim().replaceAll("\\s+", "");
@@ -98,6 +70,49 @@ public class ParamWrapper implements ParametricModelChecker {
 			LOGGER.log(Level.SEVERE, e.toString(), e);
 		}
 		return "";
+	}
+
+	private String getCurrentFormula(String modelString, String property, ParamModel model) throws IOException {
+		File modelFile = writeModelFile(modelString);
+
+		File propertyFile = writePropertyFile(property);
+
+		File resultsFile = File.createTempFile("result", null);
+
+		String formula;
+		if (usePrism && !modelString.contains("const")) {
+		    formula = invokeModelChecker(modelFile.getAbsolutePath(),
+		                                 propertyFile.getAbsolutePath(),
+		                                 resultsFile.getAbsolutePath());
+		} else if(usePrism) {
+		    formula = invokeParametricPRISM(model,
+		                                    modelFile.getAbsolutePath(),
+		                                    propertyFile.getAbsolutePath(),
+		                                    resultsFile.getAbsolutePath());
+		} else {
+		    formula = invokeParametricModelChecker(modelFile.getAbsolutePath(),
+		                                           propertyFile.getAbsolutePath(),
+		                                           resultsFile.getAbsolutePath());
+		}
+		return formula;
+	}
+
+	private File writePropertyFile(String property) throws IOException {
+		File propertyFile = File.createTempFile("property", "prop");
+		FileWriter propertyWriter = new FileWriter(propertyFile);
+		propertyWriter.write(property);
+		propertyWriter.flush();
+		propertyWriter.close();
+		return propertyFile;
+	}
+
+	private File writeModelFile(String modelString) throws IOException {
+		File modelFile = File.createTempFile("model", "param");
+		FileWriter modelWriter = new FileWriter(modelFile);
+		modelWriter.write(modelString);
+		modelWriter.flush();
+		modelWriter.close();
+		return modelFile;
 	}
 
 	private String invokeParametricModelChecker(String modelPath,
