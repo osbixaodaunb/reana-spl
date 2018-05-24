@@ -53,7 +53,8 @@ public class ExpressionSolver {
      */
     public ADD solveExpressionAsFunction(String expression, Map<String, ADD> interpretation) {
         Expression<ADD> parsedExpression = parseExpressionForFunctions(expression);
-        if (parsedExpression == null) {
+        
+        if (isParsedExpression(parsedExpression)) {
             return null;
         }
         return parsedExpression.solve(interpretation);
@@ -81,10 +82,15 @@ public class ExpressionSolver {
      */
     public Double solveExpression(String expression, Map<String, Double> interpretation) {
         Expression<Double> parsedExpression = parseExpression(expression);
-        if (parsedExpression == null) {
+        
+        if (isParsedExpression(parsedExpression)) {
             return null;
         }
         return parsedExpression.solve(interpretation);
+    }
+    
+    private <T> boolean isParsedExpression(Expression<T> parsedExpression) {
+    	return parsedExpression == null;
     }
 
     /**
