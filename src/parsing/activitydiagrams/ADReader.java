@@ -14,6 +14,8 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.w3c.dom.Document;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import parsing.ProbabilityEnergyTimeProfile;
@@ -86,55 +88,90 @@ public class ADReader {
 	 * @throws InvalidTagException
 	 */
 	public void retrieveActivities() throws InvalidTagException {
-		org.w3c.dom.Node ad;
 		List<org.w3c.dom.Node> adList = new ArrayList<org.w3c.dom.Node>();
 		NodeList nodes = this.doc.getElementsByTagName("packagedElement");
-		for (int i = 0; i < nodes.getLength(); i++) {
-			if (nodes.item(i).getAttributes().getNamedItem("xmi:type") != null) {
-				String xmiType = nodes.item(i).getAttributes().getNamedItem("xmi:type")
-						.getTextContent();
-				if (xmiType != null && xmiType.equals("uml:Activity")) {
-					ad = nodes.item(i);
-					adList.add(ad);
-				}
-			}
-		}
+		searchThroughNodes(adList, nodes);
 
-		if ((this.index + 1) == adList.size())
-			this.next = false;
-		else
-			this.next = true;
+		verifyIndexSize(adList);
 
 		org.w3c.dom.Node node = adList.get(this.index);
 		this.name = node.getAttributes().getNamedItem("name").getTextContent();
-		NodeList elements = node.getChildNodes();
+		NodeList childNodes = node.getChildNodes();
 		this.activities = new ArrayList<Activity>();
 
-		for (int s = 0; s < elements.getLength(); s++) {
-			if (elements.item(s).getNodeName().equals("node")) {
-				Activity tmp;
-				if (elements.item(s).getAttributes().getNamedItem("name") != null) {
-					tmp = new Activity(elements.item(s).getAttributes().getNamedItem("xmi:id")
-							.getTextContent(), elements.item(s).getAttributes()
-							.getNamedItem("name").getTextContent(), elements.item(s)
-							.getAttributes().getNamedItem("xmi:type").getTextContent());
-				} else {
-					tmp = new Activity(elements.item(s).getAttributes().getNamedItem("xmi:id")
-							.getTextContent(), null, elements.item(s).getAttributes()
-							.getNamedItem("xmi:type").getTextContent());
-				}
-				if (elements.item(s).getAttributes().getNamedItem("behavior") != null) {
-					tmp.setSdID(elements.item(s).getAttributes().getNamedItem("behavior").getTextContent());
-				} else {
-					tmp.setSdID(null);
-				}
-
-				this.activities.add(tmp);
+		for (int s = 0; s < childNodes.getLength(); s++) {
+			if (childNodes.item(s).getNodeName().equals("node")) { 
+				addToActivityList(childNodes, s);
 			}
 		}
 		resetActivitiesByID();
 		retrieveEdges(node);
 		solveActivities(node);
+	}
+
+	private void addToActivityList(NodeList childNodes, int s) {
+		Activity newActivity;
+		final NamedNodeMap childNodeAttributes = childNodes.item(s).getAttributes();
+		newActivity = createActivity(childNodeAttributes);
+		final Node behavior = getNodeByName(childNodeAttributes,"behavior");
+		setActivitySDId(newActivity, behavior);
+		this.activities.add(newActivity);
+	}
+
+	private void verifyIndexSize(List<org.w3c.dom.Node> adList) {
+		if ((this.index + 1) == adList.size())
+			this.next = false;
+		else
+			this.next = true;
+	}
+
+	private void setActivitySDId(Activity tmp, Node behavior) {
+		if (behavior != null) {
+			tmp.setSdID(behavior.getTextContent());
+		} else {
+			tmp.setSdID(null);
+		}
+	}
+
+	private Activity createActivity(NamedNodeMap childNodeAttributes) { 
+		Activity newActivity;
+		final Node xmiId = getNodeByName(childNodeAttributes,"xmi:id");
+		final Node xmiType = getNodeByName(childNodeAttributes, "xmi:type");
+		String name = null;
+		
+		if (childNodeAttributes.getNamedItem("name") != null) {
+			name = getNodeByName(childNodeAttributes,"name").getTextContent();
+		}
+		
+		newActivity = new Activity(
+				xmiId.getTextContent(),
+				name,
+				xmiType.getTextContent());
+		
+		return newActivity;
+	}
+
+	private Node getNodeByName(NamedNodeMap childNodeAttributes, String nodeName ) {
+		return childNodeAttributes.getNamedItem(nodeName);
+	}
+
+	private void searchThroughNodes(List<org.w3c.dom.Node> adList, NodeList nodes) {
+		for (int i = 0; i < nodes.getLength(); i++) {
+			NamedNodeMap childNodeAttributes = nodes.item(i).getAttributes();
+			addNodeToList(adList, nodes, i,childNodeAttributes);
+		}
+	}
+
+	private void addNodeToList(List<org.w3c.dom.Node> adList, NodeList nodes, int i,NamedNodeMap childNodeAttributes) {
+		org.w3c.dom.Node ad;
+		Node node = getNodeByName(childNodeAttributes,"xmi:type");
+		if (node != null) {
+			String xmiType = node.getTextContent();
+			if (xmiType != null && xmiType.equals("uml:Activity")) {
+				ad = nodes.item(i);
+				adList.add(ad);
+			}
+		}
 	}
 
 	public void resetActivitiesByID() {
@@ -161,24 +198,24 @@ public class ADReader {
 
 		for (int s = 0; s < elements.getLength(); s++) {
 			if (elements.item(s).getNodeName().equals("edge")) {
-				Edge tmp;
+				Edge tmp; //TODO: improve name
 				if (elements.item(s).getAttributes().getNamedItem("name") != null) {
-					tmp = new Edge(elements.item(s).getAttributes().getNamedItem("xmi:id")
+					tmp = new Edge(elements.item(s).getAttributes().getNamedItem("xmi:id")//TODO: insert variable
 							.getTextContent(), elements.item(s).getAttributes()
 							.getNamedItem("name").getTextContent(), elements.item(s)
 							.getAttributes().getNamedItem("xmi:type").getTextContent());
 				} else {
-					tmp = new Edge(elements.item(s).getAttributes().getNamedItem("xmi:id")
+					tmp = new Edge(elements.item(s).getAttributes().getNamedItem("xmi:id")//TODO: insert variable
 							.getTextContent(), null, elements.item(s).getAttributes()
 							.getNamedItem("xmi:type").getTextContent());
 				}
-				tmp.setSource(this.activitiesByID.get(elements.item(s).getAttributes()
+				tmp.setSource(this.activitiesByID.get(elements.item(s).getAttributes()//TODO: insert method
 						.getNamedItem("source").getTextContent()));
-				tmp.setTarget(this.activitiesByID.get(elements.item(s).getAttributes()
+				tmp.setTarget(this.activitiesByID.get(elements.item(s).getAttributes()//TODO: insert method
 						.getNamedItem("target").getTextContent()));
 
 				NodeList infoNodes = elements.item(s).getChildNodes();
-				for (int i = 0; i < infoNodes.getLength(); i++) {
+				for (int i = 0; i < infoNodes.getLength(); i++) { //TODO: derivate method
 					if (infoNodes.item(i).getNodeName().equals("guard")) {
 						NodeList guardNodes = infoNodes.item(i).getChildNodes();
 						for (int j = 0; j < guardNodes.getLength(); j++) {
@@ -220,14 +257,14 @@ public class ADReader {
 		NodeList elements = node.getChildNodes();
 		for (int s = 0; s < elements.getLength(); s++) {
 			if (elements.item(s).getNodeName().equals("node")) {
-				Activity activity = this.activitiesByID.get(elements.item(s).getAttributes()
-						.getNamedItem("xmi:id").getTextContent());
+				Activity activity = this.activitiesByID.get(elements.item(s).getAttributes() //TODO: insert variable
+						.getNamedItem("xmi:id").getTextContent()); 
 				NodeList tmpEdges = elements.item(s).getChildNodes();
 				for (int t = 0; t < tmpEdges.getLength(); t++) {
-					if (tmpEdges.item(t).getNodeName().equals("incoming")) {
-						activity.addIncoming(this.edgesByID.get(tmpEdges.item(t).getAttributes()
+					if (tmpEdges.item(t).getNodeName().equals("incoming")) {//TODO: insert variable
+						activity.addIncoming(this.edgesByID.get(tmpEdges.item(t).getAttributes()//TODO: insert method
 								.getNamedItem("xmi:idref").getTextContent()));
-					} else if (tmpEdges.item(t).getNodeName().equals("outgoing")) {
+					} else if (tmpEdges.item(t).getNodeName().equals("outgoing")) {//TODO: insert variable
 						activity.addOutgoing(this.edgesByID.get(tmpEdges.item(t).getAttributes()
 								.getNamedItem("xmi:idref").getTextContent()));
 					}
@@ -253,7 +290,7 @@ public class ADReader {
 			j++;
 			if (a.getType().equals(ActivityType.INITIAL_NODE)) {
 				if (!this.activities.get(i).equals(a)) { // PEGAR EXEMPLO P
-															// TESTAR AQUI
+															// TESTAR AQUI blz
 					temp = this.activities.get(i);
 					this.activities.set(i, this.activities.get(j));
 					this.activities.set(j, temp);
