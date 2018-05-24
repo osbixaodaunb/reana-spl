@@ -34,7 +34,13 @@ public class Expression<T> {
      *          for type {@code T}.
      */
     public T solve(Map<String, T> interpretation) {
-        SymbolTable symbolTable = parser.getSymbolTable();
+        fillSymbolTable(interpretation);
+        Object result = parser.getValueAsObject();
+        return type.cast(result);
+    }
+
+	private void fillSymbolTable(Map<String, T> interpretation) {
+		final SymbolTable symbolTable = parser.getSymbolTable();
         for (Object var: symbolTable.keySet()) {
             String varName = (String)var;
             if (interpretation.containsKey(varName)) {
@@ -43,7 +49,5 @@ public class Expression<T> {
                 LOGGER.warning("No interpretation for variable <"+varName+"> was provided");
             }
         }
-        Object result = parser.getValueAsObject();
-        return type.cast(result);
-    }
+	}
 }
