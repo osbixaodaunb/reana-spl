@@ -63,13 +63,16 @@ public class ParamWrapper implements ParametricModelChecker {
 		    LOGGER.finer(modelString);
 		    long startTime = System.nanoTime();
 			String formula = getCurrentFormula(modelString, property, model);
-			long elapsedTime = System.nanoTime() - startTime;
-            modelCollector.collectModelCheckingTime(elapsedTime);
+            modelCollector.collectModelCheckingTime(getElapsedTime(startTime));
 			return formula.trim().replaceAll("\\s+", "");
 		} catch (IOException e) {
 			LOGGER.log(Level.SEVERE, e.toString(), e);
 		}
 		return "";
+	}
+	
+	private long getElapsedTime(long startTime) {
+		return System.nanoTime() - startTime;
 	}
 
 	private String getCurrentFormula(String modelString, String property, ParamModel model) throws IOException {
@@ -118,10 +121,7 @@ public class ParamWrapper implements ParametricModelChecker {
 	private String invokeParametricModelChecker(String modelPath,
 												String propertyPath,
 												String resultsPath) throws IOException {
-		String commandLine = paramPath+" "
-							 +modelPath+" "
-							 +propertyPath+" "
-							 +"--result-file "+resultsPath;
+		String commandLine = buildCommandLine(modelPath, propertyPath, "--result-file ", resultsPath);
 		return invokeAndGetResult(commandLine, resultsPath+".out");
 	}
 
@@ -129,25 +129,23 @@ public class ParamWrapper implements ParametricModelChecker {
                                          String modelPath,
                                          String propertyPath,
                                          String resultsPath) throws IOException {
-        String commandLine = paramPath+" "
-                             +modelPath+" "
-                             +propertyPath+" "
-                             +"-exportresults "+resultsPath+" "
-                             +"-param "+String.join(",", model.getParameters());
+    	String commandLineExtraArgs = " "+"-param "+String.join(",", model.getParameters());
+        String commandLine = buildCommandLine(modelPath, propertyPath, "-exportresults ", resultsPath)+commandLineExtraArgs;
         String rawResult = invokeAndGetResult(commandLine, resultsPath);
         int openBracket = rawResult.indexOf("{");
         int closeBracket = rawResult.indexOf("}");
         String expression = rawResult.substring(openBracket+1, closeBracket);
         return expression.trim().replace('|', '/');
     }
+    
+    private String buildCommandLine(String modelPath, String propertyPath, String result, String resultsPath) {
+    	return paramPath+" "+modelPath+" "+propertyPath+" "+result+resultsPath;
+    }
 
 	private String invokeModelChecker(String modelPath,
 									  String propertyPath,
 									  String resultsPath) throws IOException {
-		String commandLine = paramPath+" "
-				 			 +modelPath+" "
-				 			 +propertyPath+" "
-				 			 +"-exportresults "+resultsPath;
+		String commandLine = buildCommandLine(modelPath, propertyPath, "-exportresults ", resultsPath);
 		return invokeAndGetResult(commandLine, resultsPath);
 	}
 
