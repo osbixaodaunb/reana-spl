@@ -15,11 +15,10 @@ public class ProbabilityEnergyTimeProfileReader {
      */
     public static ProbabilityEnergyTimeProfile retrieveProbEnergyTime(String nodeId, Document doc) throws InvalidTagException {
         ProbabilityEnergyTimeProfile profile = new ProbabilityEnergyTimeProfile();
-
-        retrieveProbEnergyTimeHelper(doc.getElementsByTagName("GQAM:GaStep"), nodeId, profile);
-        retrieveProbEnergyTimeHelper(doc.getElementsByTagName("PAM:PaStep"), nodeId, profile);
-        retrieveProbEnergyTimeHelper(doc.getElementsByTagName("GRM:ResourceUsage"), nodeId, profile);
-        retrieveProbEnergyTimeHelper(doc.getElementsByTagName("PAM:PaCommStep"), nodeId, profile);
+        String[] nameTags = {"GQAM:GaStep", "PAM:PaStep", "GRM:ResourceUsage", "PAM:PaCommStep"};
+        for(int i = 0; i < nameTags.length; i++) {
+        	retrieveProbEnergyTimeHelper(doc.getElementsByTagName(nameTags[i]), nodeId, profile);        	
+        }
 
         return profile;
     }
