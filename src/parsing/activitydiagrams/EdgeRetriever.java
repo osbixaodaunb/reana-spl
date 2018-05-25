@@ -3,7 +3,6 @@ package parsing.activitydiagrams;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.NodeList;
@@ -27,7 +26,7 @@ public class EdgeRetriever {
 		for (int s = 0; s < childNodes.getLength(); s++) {
 			addEdge(childNodes, s);
 		}
-		resetEdgesByID();
+			resetEdgesByID();
 	}
 
 	private void addEdge(NodeList childNodes, int s) throws InvalidTagException {

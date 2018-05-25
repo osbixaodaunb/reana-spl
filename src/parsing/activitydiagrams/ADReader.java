@@ -18,8 +18,6 @@ import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-import parsing.ProbabilityEnergyTimeProfile;
-import parsing.ProbabilityEnergyTimeProfileReader;
 import parsing.exceptions.InvalidTagException;
 
 /**
@@ -219,28 +217,41 @@ public class ADReader {
 	 * @param node The node object (i.e. the XMI fragment) representing the whole activity diagram.
 	 */
 	public void solveActivities(org.w3c.dom.Node node) {
-		NodeList elements = node.getChildNodes();
-		for (int s = 0; s < elements.getLength(); s++) {
-			if (elements.item(s).getNodeName().equals("node")) {
-				Activity activity = this.activitiesByID.get(elements.item(s).getAttributes() //TODO: insert variable
-						.getNamedItem("xmi:id").getTextContent()); 
-				NodeList tmpEdges = elements.item(s).getChildNodes();
-				for (int t = 0; t < tmpEdges.getLength(); t++) {
-					if (tmpEdges.item(t).getNodeName().equals("incoming")) {//TODO: insert variable
-						activity.addIncoming(this.edgesByID.get(tmpEdges.item(t).getAttributes()//TODO: insert method
-								.getNamedItem("xmi:idref").getTextContent()));
-					} else if (tmpEdges.item(t).getNodeName().equals("outgoing")) {//TODO: insert variable
-						activity.addOutgoing(this.edgesByID.get(tmpEdges.item(t).getAttributes()
-								.getNamedItem("xmi:idref").getTextContent()));
-					}
-				}
+		NodeList childNodes = node.getChildNodes();
+		for (int s = 0; s < childNodes.getLength(); s++) {
+			NamedNodeMap childNodeAttributes = childNodes.item(s).getAttributes();
+			if (childNodes.item(s).getNodeName().equals("node")) {
+				Activity activity = getActivity(childNodeAttributes); 
+				addOutgoingNIncoming(childNodes, s, activity);
 			}
 		}
 		orderActivities();
 	}
 
+	private Activity getActivity(NamedNodeMap childNodeAttributes) {
+		return this.activitiesByID.get(
+				getItemByName(childNodeAttributes, "xmi:id").getTextContent());
+	}
 
+	private void addOutgoingNIncoming(NodeList childNodes, int s, Activity activity) {
+		NodeList tmpEdges = childNodes.item(s).getChildNodes();
+		
+		for (int t = 0; t < tmpEdges.getLength(); t++) {
+			NamedNodeMap edgeAttributes = tmpEdges.item(t).getAttributes();
+			String edgeText = getItemByName(edgeAttributes, "xmi:idref").getTextContent();
+			String edgeType = tmpEdges.item(t).getNodeName();
+			
+			if (edgeType.equals("incoming")) {
+				activity.addIncoming(getEdge(edgeText));
+			} else if (edgeType.equals("outgoing")) {
+				activity.addOutgoing(getEdge(edgeText));
+			}
+		}
+	}
 
+	private Edge getEdge(String edgeText) {
+		return this.edgesByID.get(edgeText);
+	}
 
 	public void setEdgesByID(Map<String, Edge> edgesByID) {
 		this.edgesByID = edgesByID;
@@ -254,50 +265,7 @@ public class ADReader {
 	 * This function is used to order the activities of a sequence diagram.
 	 */
 	public void orderActivities() {
-		int i = 0, j;
-		Queue<Activity> queue = new LinkedList<Activity>();
-		Activity target, temp;
-
-		j = -1;
-		for (Activity a : this.activities) {
-			j++;
-			if (a.getType().equals(ActivityType.INITIAL_NODE)) {
-				if (!this.activities.get(i).equals(a)) { // PEGAR EXEMPLO P
-															// TESTAR AQUI blz
-					temp = this.activities.get(i);
-					this.activities.set(i, this.activities.get(j));
-					this.activities.set(j, temp);
-				}
-				a.setOrdered(true);
-				i++;
-				queue.add(a);
-				break;
-			}
-		}
-
-		while (!queue.isEmpty()) {
-			for (Edge e : queue.element().getOutgoing()) {
-				target = e.getTarget();
-				if (!target.isOrdered()) { // nao esta ordenado
-					if (!this.activities.get(i).equals(target)) { // ordem errada
-						j = -1;
-						for (Activity a : this.activities) {
-							j++;
-							if (a.equals(target)) { // j:posicao do target
-													// i:posicao atual ordenacao
-								temp = this.activities.get(i);
-								this.activities.set(i, this.activities.get(j));
-								this.activities.set(j, temp);
-								break;
-							}
-						}
-					}
-					target.setOrdered(true); // marca ordem target certa
-					i++;
-					queue.add(target); // poe target na fila
-				}
-			}
-			queue.poll(); // tira o primeiro da fila
-		}
+		ActivitySort activitieSort = new ActivitySort(this);
+		activitieSort.orderActivities();
 	}
 }
