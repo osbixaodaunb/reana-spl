@@ -112,7 +112,6 @@ public class SDReader {
 						newFragment.setProfile(profile);
 						this.sd.addNode(newFragment);
 						traceFragment(newFragment, child);
-
 					}
 				}
 			}
@@ -202,31 +201,43 @@ public class SDReader {
 						message.setName(sAttrs.getNamedItem("name").getTextContent().replace("\n", " "));
 					}
 
-					for (Lifeline l: this.lifelines) {
-						if (this.coverage.get(l).contains(sAttrs.getNamedItem("sendEvent").getTextContent())) {
-							message.setSender(l);
-						}
-						if (this.coverage.get(l).contains(sAttrs.getNamedItem("receiveEvent").getTextContent())) {
-							message.setReceiver(l);
-						}
-					}
+					handleMessageEvent(sAttrs, message);
 
-					if (sAttrs.getNamedItem("messageSort") != null) {
-					    String messageSortContent = sAttrs.getNamedItem("messageSort").getTextContent();
-						if ("asynchCall".equals(messageSortContent) || "asynchSignal".equals(messageSortContent)) {
-							message.setType(MessageType.ASYNCHRONOUS);
-						} else if ("reply".equals(messageSortContent)) {
-							message.setType(MessageType.REPLY);
-						}
-					} else {
-						message.setType(MessageType.SYNCHRONOUS);
-					}
+					setMessageType(sAttrs, message);
 
-					ProbabilityEnergyTimeProfile profile = ProbabilityEnergyTimeProfileReader.retrieveProbEnergyTime(message.getId(), this.doc);
-					message.setProfile(profile);
-					this.messages.add(message);
-					this.messagesByID.put(message.getId(), message);
+					addMessage(message);
 				}
+			}
+		}
+
+		private void addMessage(Message message) throws InvalidTagException {
+			ProbabilityEnergyTimeProfile profile = ProbabilityEnergyTimeProfileReader.retrieveProbEnergyTime(message.getId(), this.doc);
+			message.setProfile(profile);
+			this.messages.add(message);
+			this.messagesByID.put(message.getId(), message);
+		}
+
+		private void handleMessageEvent(NamedNodeMap sAttrs, Message message) {
+			for (Lifeline l: this.lifelines) {
+				if (this.coverage.get(l).contains(sAttrs.getNamedItem("sendEvent").getTextContent())) {
+					message.setSender(l);
+				}
+				if (this.coverage.get(l).contains(sAttrs.getNamedItem("receiveEvent").getTextContent())) {
+					message.setReceiver(l);
+				}
+			}
+		}
+
+		private void setMessageType(NamedNodeMap sAttrs, Message message) {
+			if (sAttrs.getNamedItem("messageSort") != null) {
+			    String messageSortContent = sAttrs.getNamedItem("messageSort").getTextContent();
+				if ("asynchCall".equals(messageSortContent) || "asynchSignal".equals(messageSortContent)) {
+					message.setType(MessageType.ASYNCHRONOUS);
+				} else if ("reply".equals(messageSortContent)) {
+					message.setType(MessageType.REPLY);
+				}
+			} else {
+				message.setType(MessageType.SYNCHRONOUS);
 			}
 		}
 
