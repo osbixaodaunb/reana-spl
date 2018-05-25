@@ -138,6 +138,27 @@ public class SDReader {
 		private void retrieveLifelines(org.w3c.dom.Node node) throws InvalidTagException, UnsupportedFragmentTypeException {
 			NodeList elements = node.getChildNodes();
 
+			initLifelines(elements);
+
+			formatLifelines(elements);
+		}
+
+		private void formatLifelines(NodeList elements) {
+			for (int s = 0; s < elements.getLength(); s++) {
+				if (elements.item(s).getNodeName().equals("ownedAttribute")) {
+					for (int j = 0; j < this.lifelines.size(); j++) {
+						if (this.lifelines.get(j).getLink().equals(
+								elements.item(s).getAttributes().getNamedItem("xmi:id")
+										.getTextContent())) {
+							this.lifelines.get(j).setName(elements.item(s).getAttributes()
+									.getNamedItem("name").getTextContent().replace('\n', ' '));
+						}
+					}
+				}
+			}
+		}
+
+		private void initLifelines(NodeList elements) {
 			for (int s = 0; s < elements.getLength(); s++) {
 
 				if (elements.item(s).getNodeName().equals("lifeline")) {
@@ -159,19 +180,6 @@ public class SDReader {
 					this.coverage.put(tmp, coveredBy);
 					this.lifelines.add(tmp);
 					this.lifelinesByID.put(tmp.getId(), tmp);
-				}
-			}
-
-			for (int s = 0; s < elements.getLength(); s++) {
-				if (elements.item(s).getNodeName().equals("ownedAttribute")) {
-					for (int j = 0; j < this.lifelines.size(); j++) {
-						if (this.lifelines.get(j).getLink().equals(
-								elements.item(s).getAttributes().getNamedItem("xmi:id")
-										.getTextContent())) {
-							this.lifelines.get(j).setName(elements.item(s).getAttributes()
-									.getNamedItem("name").getTextContent().replace('\n', ' '));
-						}
-					}
 				}
 			}
 		}
