@@ -33,7 +33,6 @@ public class SDReader {
     private static final Logger LOGGER = Logger.getLogger(SDReader.class.getName());
 
 		private int index;
-		private boolean next;
 		private Map<Lifeline, List<String>> coverage;
 		private Map<String, Lifeline> lifelinesByID;
 		private Map<String, Message> messagesByID;
@@ -69,7 +68,6 @@ public class SDReader {
 		 */
 		public void traceDiagram() throws UnsupportedFragmentTypeException, InvalidTagException {
 			NodeList nodes = this.doc.getElementsByTagName("ownedBehavior");
-			this.next = (this.index == nodes.getLength() - 1) ? false : true;
 
 			org.w3c.dom.Node n = nodes.item(this.index);
 			NamedNodeMap nAttrs = n.getAttributes();
@@ -319,11 +317,9 @@ public class SDReader {
 		}
 
 		public boolean hasNext() {
-			return next;
-		}
-
-		public void setNext(boolean next) {
-			this.next = next;
+			NodeList nodes = this.doc.getElementsByTagName("ownedBehavior");
+			
+			return (this.index == nodes.getLength() - 1) ? false : true;
 		}
 
 		public Map<Lifeline, List<String>> getCoverage() {
