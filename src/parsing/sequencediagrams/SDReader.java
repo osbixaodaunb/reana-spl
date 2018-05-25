@@ -253,46 +253,54 @@ public class SDReader {
 			NodeList oChilds = node.getChildNodes();
 
 			for (int k = 0; k < oChilds.getLength(); k++) {
-
 				org.w3c.dom.Node itemK = oChilds.item(k);
                 if ("fragment".equals(itemK.getNodeName())) {
-
-					NamedNodeMap kAttrs = itemK.getAttributes();
-					String typeContent = kAttrs.getNamedItem("xmi:type").getTextContent();
-					if ("uml:MessageOccurrenceSpecification".equals(typeContent)) {
-
-						String msgID = kAttrs.getNamedItem("message").getTextContent();
-						operand.addNode(this.messagesByID.get(msgID));
-						k+=2;
-
-					} else if ("uml:CombinedFragment".equals(typeContent)) {
-
-						Fragment innerFragment =
-									new Fragment(
-										extractId(kAttrs),
-										kAttrs.getNamedItem("interactionOperator").getTextContent(),
-										extractName(kAttrs)
-									);
-
-						ProbabilityEnergyTimeProfile profile = ProbabilityEnergyTimeProfileReader.retrieveProbEnergyTime(innerFragment.getId(), this.doc);
-                        innerFragment.setProfile(profile);
-						operand.addNode(innerFragment);
-						traceFragment(innerFragment, itemK);
-					}
-
+					k = handleFragmentNode(operand, k, itemK);
 				} else if ("guard".equals(itemK.getNodeName())) {
-					NodeList kChilds = itemK.getChildNodes();
-					for (int l = 0; l < kChilds.getLength(); l++) {
-					    org.w3c.dom.Node itemL = kChilds.item(l);
-						if ("specification".equals(itemL.getNodeName())) {
-							operand.setGuard(itemL.getAttributes()
-									.getNamedItem("value").getTextContent());
-
-							break;
-						}
-					}
+					handleGuardNode(operand, itemK);
 				}
 			}
+		}
+
+		private void handleGuardNode(Operand operand, org.w3c.dom.Node itemK) {
+			NodeList kChilds = itemK.getChildNodes();
+			for (int l = 0; l < kChilds.getLength(); l++) {
+			    org.w3c.dom.Node itemL = kChilds.item(l);
+				if ("specification".equals(itemL.getNodeName())) {
+					operand.setGuard(itemL.getAttributes()
+							.getNamedItem("value").getTextContent());
+
+					break;
+				}
+			}
+		}
+
+		private int handleFragmentNode(Operand operand, int k, org.w3c.dom.Node itemK)
+				throws UnsupportedFragmentTypeException, InvalidTagException {
+			NamedNodeMap kAttrs = itemK.getAttributes();
+			String typeContent = kAttrs.getNamedItem("xmi:type").getTextContent();
+			if ("uml:MessageOccurrenceSpecification".equals(typeContent)) {
+
+				String msgID = kAttrs.getNamedItem("message").getTextContent();
+				operand.addNode(this.messagesByID.get(msgID));
+				k+=2;
+
+			} else if ("uml:CombinedFragment".equals(typeContent)) {
+
+				Fragment innerFragment =
+							new Fragment(
+								extractId(kAttrs),
+								kAttrs.getNamedItem("interactionOperator").getTextContent(),
+								extractName(kAttrs)
+							);
+
+				ProbabilityEnergyTimeProfile profile = ProbabilityEnergyTimeProfileReader.retrieveProbEnergyTime(innerFragment.getId(), this.doc);
+			    innerFragment.setProfile(profile);
+				operand.addNode(innerFragment);
+				traceFragment(innerFragment, itemK);
+			}
+			
+			return k;
 		}
 
 		/**
