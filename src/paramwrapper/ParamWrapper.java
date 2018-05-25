@@ -61,78 +61,53 @@ public class ParamWrapper implements ParametricModelChecker {
 	private String evaluate(String modelString, String property, ParamModel model) {
 		try {
 		    LOGGER.finer(modelString);
-			File modelFile = File.createTempFile("model", "param");
-			FileWriter modelWriter = new FileWriter(modelFile);
-			modelWriter.write(modelString);
-			modelWriter.flush();
-			modelWriter.close();
-
-			File propertyFile = File.createTempFile("property", "prop");
-			FileWriter propertyWriter = new FileWriter(propertyFile);
-			propertyWriter.write(property);
-			propertyWriter.flush();
-			propertyWriter.close();
-
-			File resultsFile = File.createTempFile("result", null);
-
-			String formula;
-			long startTime = System.nanoTime();
-			if (usePrism && !modelString.contains("const")) {
-			    formula = invokeModelChecker(modelFile.getAbsolutePath(),
-			                                 propertyFile.getAbsolutePath(),
-			                                 resultsFile.getAbsolutePath());
-			} else if(usePrism) {
-			    formula = invokeParametricPRISM(model,
-			                                    modelFile.getAbsolutePath(),
-                                                propertyFile.getAbsolutePath(),
-                                                resultsFile.getAbsolutePath());
-			} else {
-			    formula = invokeParametricModelChecker(modelFile.getAbsolutePath(),
-			                                           propertyFile.getAbsolutePath(),
-			                                           resultsFile.getAbsolutePath());
-			}
-			long elapsedTime = System.nanoTime() - startTime;
-            modelCollector.collectModelCheckingTime(elapsedTime);
+		    long startTime = System.nanoTime();
+			String formula = getCurrentFormula(modelString, property, model);
+            modelCollector.collectModelCheckingTime(getElapsedTime(startTime));
 			return formula.trim().replaceAll("\\s+", "");
 		} catch (IOException e) {
 			LOGGER.log(Level.SEVERE, e.toString(), e);
 		}
 		return "";
 	}
+	
+	private long getElapsedTime(long startTime) {
+		return System.nanoTime() - startTime;
+	}
 
-	private String invokeParametricModelChecker(String modelPath,
+	private String getCurrentFormula(String modelString, String property, ParamModel model) throws IOException {
+		Formula formula = new Formula(this);
+		return formula.getCurrentFormula(modelString, property, model);
+	}
+
+	public String invokeParametricModelChecker(String modelPath,
 												String propertyPath,
 												String resultsPath) throws IOException {
-		String commandLine = paramPath+" "
-							 +modelPath+" "
-							 +propertyPath+" "
-							 +"--result-file "+resultsPath;
+		String commandLine = buildCommandLine(modelPath, propertyPath, "--result-file ", resultsPath);
 		return invokeAndGetResult(commandLine, resultsPath+".out");
 	}
 
-    private String invokeParametricPRISM(ParamModel model,
+    public String invokeParametricPRISM(ParamModel model,
                                          String modelPath,
                                          String propertyPath,
                                          String resultsPath) throws IOException {
-        String commandLine = paramPath+" "
-                             +modelPath+" "
-                             +propertyPath+" "
-                             +"-exportresults "+resultsPath+" "
-                             +"-param "+String.join(",", model.getParameters());
+    	String commandLineExtraArgs = " "+"-param "+String.join(",", model.getParameters());
+        String commandLine = buildCommandLine(modelPath, propertyPath, "-exportresults ", resultsPath)+commandLineExtraArgs;
         String rawResult = invokeAndGetResult(commandLine, resultsPath);
         int openBracket = rawResult.indexOf("{");
         int closeBracket = rawResult.indexOf("}");
         String expression = rawResult.substring(openBracket+1, closeBracket);
         return expression.trim().replace('|', '/');
     }
+    
+    private String buildCommandLine(String modelPath, String propertyPath, String result, String resultsPath) {
+    	return paramPath+" "+modelPath+" "+propertyPath+" "+result+resultsPath;
+    }
 
-	private String invokeModelChecker(String modelPath,
+	public String invokeModelChecker(String modelPath,
 									  String propertyPath,
 									  String resultsPath) throws IOException {
-		String commandLine = paramPath+" "
-				 			 +modelPath+" "
-				 			 +propertyPath+" "
-				 			 +"-exportresults "+resultsPath;
+		String commandLine = buildCommandLine(modelPath, propertyPath, "-exportresults ", resultsPath);
 		return invokeAndGetResult(commandLine, resultsPath);
 	}
 
@@ -150,6 +125,10 @@ public class ParamWrapper implements ParametricModelChecker {
 		lines.removeIf(String::isEmpty);
 		// Formula
 		return lines.get(lines.size()-1);
+	}
+	
+	public boolean getPrism() {
+		return this.usePrism;
 	}
 
 }
