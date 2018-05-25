@@ -15,11 +15,10 @@ public class ProbabilityEnergyTimeProfileReader {
      */
     public static ProbabilityEnergyTimeProfile retrieveProbEnergyTime(String nodeId, Document doc) throws InvalidTagException {
         ProbabilityEnergyTimeProfile profile = new ProbabilityEnergyTimeProfile();
-
-        retrieveProbEnergyTimeHelper(doc.getElementsByTagName("GQAM:GaStep"), nodeId, profile);
-        retrieveProbEnergyTimeHelper(doc.getElementsByTagName("PAM:PaStep"), nodeId, profile);
-        retrieveProbEnergyTimeHelper(doc.getElementsByTagName("GRM:ResourceUsage"), nodeId, profile);
-        retrieveProbEnergyTimeHelper(doc.getElementsByTagName("PAM:PaCommStep"), nodeId, profile);
+        String[] nameTags = {"GQAM:GaStep", "PAM:PaStep", "GRM:ResourceUsage", "PAM:PaCommStep"};
+        for(int i = 0; i < nameTags.length; i++) {
+        	retrieveProbEnergyTimeHelper(doc.getElementsByTagName(nameTags[i]), nodeId, profile);        	
+        }
 
         return profile;
     }
@@ -43,22 +42,28 @@ public class ProbabilityEnergyTimeProfileReader {
                     profile.setProb(parseTag(kAttrs.getNamedItem("prob").getTextContent(), "prob").floatValue());
                 }
 
-                if (item.hasChildNodes()) {
-                    NodeList kChilds = item.getChildNodes();
-                    for (int i = 0; i < kChilds.getLength(); i++) {
-                        tmp = kChilds.item(i);
-                        if (tmp.getNodeName() != null && tmp.getNodeName().equals("energy")) {
-                            profile.setEnergy(parseTag(tmp.getTextContent(), "energy").floatValue());
-                        }
-                        if (tmp.getNodeName() != null && tmp.getNodeName().equals("execTime")) {
-                            profile.setExecTime(parseTag(tmp.getTextContent(), "execTime"));
-                        }
-                    }
-                }
+                setEnergyTime(profile, item);
                 break;
             }
         }
     }
+
+	private static void setEnergyTime(ProbabilityEnergyTimeProfile profile, org.w3c.dom.Node item)
+			throws InvalidTagException {
+		org.w3c.dom.Node tmp;
+		if (item.hasChildNodes()) {
+		    NodeList kChilds = item.getChildNodes();
+		    for (int i = 0; i < kChilds.getLength(); i++) {
+		        tmp = kChilds.item(i);
+		        if (tmp.getNodeName() != null && tmp.getNodeName().equals("energy")) {
+		            profile.setEnergy(parseTag(tmp.getTextContent(), "energy").floatValue());
+		        }
+		        if (tmp.getNodeName() != null && tmp.getNodeName().equals("execTime")) {
+		            profile.setExecTime(parseTag(tmp.getTextContent(), "execTime"));
+		        }
+		    }
+		}
+	}
 
     /**
      * Validates the input string and returns the proper float value from it
