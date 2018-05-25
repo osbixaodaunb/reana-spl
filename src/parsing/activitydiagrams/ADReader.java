@@ -36,7 +36,6 @@ public class ADReader {
 	private Map<String, Edge> edgesByID;
 	private Document doc;
 	private List<Activity> activities;
-	private List<Edge> edges;
 
 
 
@@ -51,13 +50,25 @@ public class ADReader {
 			LOGGER.log(Level.SEVERE, e.toString(), e);
 		}
 	}
-
+	
 	public int getIndex() {
 		return index;
 	}
 
 	public String getName() {
 		return name;
+	}
+	
+	public Document getDoc() {
+		return doc;
+	}
+	
+	public Map<String, Activity> getActivitiesByID() {
+		return activitiesByID;
+	}
+
+	public void setActivitiesByID(Map<String, Activity> activitiesByID) {
+		this.activitiesByID = activitiesByID;
 	}
 
 	public List<Activity> getActivities() {
@@ -66,14 +77,6 @@ public class ADReader {
 
 	public void setActivities(List<Activity> activities) {
 		this.activities = activities;
-	}
-
-	public List<Edge> getEdges() {
-		return edges;
-	}
-
-	public void setEdges(List<Edge> edges) {
-		this.edges = edges;
 	}
 
 	public boolean hasNext() {
@@ -112,9 +115,10 @@ public class ADReader {
 	private void addToActivityList(NodeList childNodes, int s) {
 		Activity newActivity;
 		final NamedNodeMap childNodeAttributes = childNodes.item(s).getAttributes();
-		newActivity = createActivity(childNodeAttributes);
-		final Node behavior = getNodeByName(childNodeAttributes,"behavior");
+		newActivity = (Activity) createObject(childNodeAttributes);
+		final Node behavior = getItemByName(childNodeAttributes,"behavior");
 		setActivitySDId(newActivity, behavior);
+		
 		this.activities.add(newActivity);
 	}
 
@@ -133,25 +137,34 @@ public class ADReader {
 		}
 	}
 
-	private Activity createActivity(NamedNodeMap childNodeAttributes) { 
-		Activity newActivity;
-		final Node xmiId = getNodeByName(childNodeAttributes,"xmi:id");
-		final Node xmiType = getNodeByName(childNodeAttributes, "xmi:type");
+	public Object createObject(NamedNodeMap childNodeAttributes) { 
+		Object newObject = null;
+		final Node xmiId = getItemByName(childNodeAttributes,"xmi:id");
+		final Node xmiType = getItemByName(childNodeAttributes, "xmi:type");
 		String name = null;
 		
 		if (childNodeAttributes.getNamedItem("name") != null) {
-			name = getNodeByName(childNodeAttributes,"name").getTextContent();
+			name = getItemByName(childNodeAttributes,"name").getTextContent();
 		}
 		
-		newActivity = new Activity(
-				xmiId.getTextContent(),
-				name,
-				xmiType.getTextContent());
+		if(childNodeAttributes.equals("node")) {
+			newObject = new Activity(
+					xmiId.getTextContent(),
+					name,
+					xmiType.getTextContent());
+		} else {
+			newObject = new Edge(
+					xmiId.getTextContent(),
+					name,
+					xmiType.getTextContent());
+		}
 		
-		return newActivity;
+		
+		
+		return newObject;
 	}
 
-	private Node getNodeByName(NamedNodeMap childNodeAttributes, String nodeName ) {
+	public Node getItemByName(NamedNodeMap childNodeAttributes, String nodeName ) {
 		return childNodeAttributes.getNamedItem(nodeName);
 	}
 
@@ -164,7 +177,7 @@ public class ADReader {
 
 	private void addNodeToList(List<org.w3c.dom.Node> adList, NodeList nodes, int i,NamedNodeMap childNodeAttributes) {
 		org.w3c.dom.Node ad;
-		Node node = getNodeByName(childNodeAttributes,"xmi:type");
+		Node node = getItemByName(childNodeAttributes,"xmi:type");
 		if (node != null) {
 			String xmiType = node.getTextContent();
 			if (xmiType != null && xmiType.equals("uml:Activity")) {
@@ -193,57 +206,9 @@ public class ADReader {
 	 * @throws InvalidTagException
 	 */
 	public void retrieveEdges(org.w3c.dom.Node node) throws InvalidTagException {
-		NodeList elements = node.getChildNodes();
-		this.edges = new ArrayList<Edge>();
-
-		for (int s = 0; s < elements.getLength(); s++) {
-			if (elements.item(s).getNodeName().equals("edge")) {
-				Edge tmp; //TODO: improve name
-				if (elements.item(s).getAttributes().getNamedItem("name") != null) {
-					tmp = new Edge(elements.item(s).getAttributes().getNamedItem("xmi:id")//TODO: insert variable
-							.getTextContent(), elements.item(s).getAttributes()
-							.getNamedItem("name").getTextContent(), elements.item(s)
-							.getAttributes().getNamedItem("xmi:type").getTextContent());
-				} else {
-					tmp = new Edge(elements.item(s).getAttributes().getNamedItem("xmi:id")//TODO: insert variable
-							.getTextContent(), null, elements.item(s).getAttributes()
-							.getNamedItem("xmi:type").getTextContent());
-				}
-				tmp.setSource(this.activitiesByID.get(elements.item(s).getAttributes()//TODO: insert method
-						.getNamedItem("source").getTextContent()));
-				tmp.setTarget(this.activitiesByID.get(elements.item(s).getAttributes()//TODO: insert method
-						.getNamedItem("target").getTextContent()));
-
-				NodeList infoNodes = elements.item(s).getChildNodes();
-				for (int i = 0; i < infoNodes.getLength(); i++) { //TODO: derivate method
-					if (infoNodes.item(i).getNodeName().equals("guard")) {
-						NodeList guardNodes = infoNodes.item(i).getChildNodes();
-						for (int j = 0; j < guardNodes.getLength(); j++) {
-							if (guardNodes.item(j).getNodeName().equals("body")) {
-								tmp.setGuard(guardNodes.item(j).getTextContent());
-								break;
-							}
-						}
-						break;
-					}
-				}
-				ProbabilityEnergyTimeProfile profile = ProbabilityEnergyTimeProfileReader.retrieveProbEnergyTime(tmp.getId(), this.doc);
-				if (profile.hasProbability()) {
-				    tmp.setProbability(profile.getProbability());
-				}
-				this.edges.add(tmp);
-			}
-		}
-		resetEdgesByID();
+		EdgeRetriever edgeRetriever = new EdgeRetriever(this);
+		edgeRetriever.retrieveEdges(node);
 	}
-
-	public void resetEdgesByID() {
-		this.edgesByID = new HashMap<String, Edge>();
-		for (Edge e : this.edges) {
-			this.edgesByID.put(e.getId(), e);
-		}
-	}
-
 
 
 	/**
@@ -276,6 +241,14 @@ public class ADReader {
 
 
 
+
+	public void setEdgesByID(Map<String, Edge> edgesByID) {
+		this.edgesByID = edgesByID;
+	}
+
+	public Map<String, Edge> getEdgesByID() {
+		return edgesByID;
+	}
 
 	/**
 	 * This function is used to order the activities of a sequence diagram.
