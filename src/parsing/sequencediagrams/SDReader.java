@@ -81,6 +81,10 @@ public class SDReader {
 
 			this.sd.setLifelines(this.lifelines);
 
+			addFragmentNodes(n);
+		}
+
+		private void addFragmentNodes(org.w3c.dom.Node n) throws UnsupportedFragmentTypeException, InvalidTagException {
 			NodeList nChilds = n.getChildNodes();
 			for (int i = 0; i < nChilds.getLength(); i++) {
 
