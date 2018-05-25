@@ -14,10 +14,10 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.w3c.dom.Document;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-import parsing.ProbabilityEnergyTimeProfile;
-import parsing.ProbabilityEnergyTimeProfileReader;
 import parsing.exceptions.InvalidTagException;
 
 /**
@@ -34,7 +34,6 @@ public class ADReader {
 	private Map<String, Edge> edgesByID;
 	private Document doc;
 	private List<Activity> activities;
-	private List<Edge> edges;
 
 
 
@@ -49,13 +48,25 @@ public class ADReader {
 			LOGGER.log(Level.SEVERE, e.toString(), e);
 		}
 	}
-
+	
 	public int getIndex() {
 		return index;
 	}
 
 	public String getName() {
 		return name;
+	}
+	
+	public Document getDoc() {
+		return doc;
+	}
+	
+	public Map<String, Activity> getActivitiesByID() {
+		return activitiesByID;
+	}
+
+	public void setActivitiesByID(Map<String, Activity> activitiesByID) {
+		this.activitiesByID = activitiesByID;
 	}
 
 	public List<Activity> getActivities() {
@@ -64,14 +75,6 @@ public class ADReader {
 
 	public void setActivities(List<Activity> activities) {
 		this.activities = activities;
-	}
-
-	public List<Edge> getEdges() {
-		return edges;
-	}
-
-	public void setEdges(List<Edge> edges) {
-		this.edges = edges;
 	}
 
 	public boolean hasNext() {
@@ -86,55 +89,100 @@ public class ADReader {
 	 * @throws InvalidTagException
 	 */
 	public void retrieveActivities() throws InvalidTagException {
-		org.w3c.dom.Node ad;
 		List<org.w3c.dom.Node> adList = new ArrayList<org.w3c.dom.Node>();
 		NodeList nodes = this.doc.getElementsByTagName("packagedElement");
-		for (int i = 0; i < nodes.getLength(); i++) {
-			if (nodes.item(i).getAttributes().getNamedItem("xmi:type") != null) {
-				String xmiType = nodes.item(i).getAttributes().getNamedItem("xmi:type")
-						.getTextContent();
-				if (xmiType != null && xmiType.equals("uml:Activity")) {
-					ad = nodes.item(i);
-					adList.add(ad);
-				}
-			}
-		}
+		searchThroughNodes(adList, nodes);
 
-		if ((this.index + 1) == adList.size())
-			this.next = false;
-		else
-			this.next = true;
+		verifyIndexSize(adList);
 
 		org.w3c.dom.Node node = adList.get(this.index);
 		this.name = node.getAttributes().getNamedItem("name").getTextContent();
-		NodeList elements = node.getChildNodes();
+		NodeList childNodes = node.getChildNodes();
 		this.activities = new ArrayList<Activity>();
 
-		for (int s = 0; s < elements.getLength(); s++) {
-			if (elements.item(s).getNodeName().equals("node")) {
-				Activity tmp;
-				if (elements.item(s).getAttributes().getNamedItem("name") != null) {
-					tmp = new Activity(elements.item(s).getAttributes().getNamedItem("xmi:id")
-							.getTextContent(), elements.item(s).getAttributes()
-							.getNamedItem("name").getTextContent(), elements.item(s)
-							.getAttributes().getNamedItem("xmi:type").getTextContent());
-				} else {
-					tmp = new Activity(elements.item(s).getAttributes().getNamedItem("xmi:id")
-							.getTextContent(), null, elements.item(s).getAttributes()
-							.getNamedItem("xmi:type").getTextContent());
-				}
-				if (elements.item(s).getAttributes().getNamedItem("behavior") != null) {
-					tmp.setSdID(elements.item(s).getAttributes().getNamedItem("behavior").getTextContent());
-				} else {
-					tmp.setSdID(null);
-				}
-
-				this.activities.add(tmp);
+		for (int s = 0; s < childNodes.getLength(); s++) {
+			if (childNodes.item(s).getNodeName().equals("node")) { 
+				addToActivityList(childNodes, s);
 			}
 		}
 		resetActivitiesByID();
 		retrieveEdges(node);
 		solveActivities(node);
+	}
+
+	private void addToActivityList(NodeList childNodes, int s) {
+		Activity newActivity;
+		final NamedNodeMap childNodeAttributes = childNodes.item(s).getAttributes();
+		newActivity = (Activity) createObject(childNodeAttributes);
+		final Node behavior = getItemByName(childNodeAttributes,"behavior");
+		setActivitySDId(newActivity, behavior);
+		
+		this.activities.add(newActivity);
+	}
+
+	private void verifyIndexSize(List<org.w3c.dom.Node> adList) {
+		if ((this.index + 1) == adList.size())
+			this.next = false;
+		else
+			this.next = true;
+	}
+
+	private void setActivitySDId(Activity tmp, Node behavior) {
+		if (behavior != null) {
+			tmp.setSdID(behavior.getTextContent());
+		} else {
+			tmp.setSdID(null);
+		}
+	}
+
+	public Object createObject(NamedNodeMap childNodeAttributes) { 
+		Object newObject = null;
+		final Node xmiId = getItemByName(childNodeAttributes,"xmi:id");
+		final Node xmiType = getItemByName(childNodeAttributes, "xmi:type");
+		String name = null;
+		
+		if (childNodeAttributes.getNamedItem("name") != null) {
+			name = getItemByName(childNodeAttributes,"name").getTextContent();
+		}
+		
+		if(childNodeAttributes.equals("node")) {
+			newObject = new Activity(
+					xmiId.getTextContent(),
+					name,
+					xmiType.getTextContent());
+		} else {
+			newObject = new Edge(
+					xmiId.getTextContent(),
+					name,
+					xmiType.getTextContent());
+		}
+		
+		
+		
+		return newObject;
+	}
+
+	public Node getItemByName(NamedNodeMap childNodeAttributes, String nodeName ) {
+		return childNodeAttributes.getNamedItem(nodeName);
+	}
+
+	private void searchThroughNodes(List<org.w3c.dom.Node> adList, NodeList nodes) {
+		for (int i = 0; i < nodes.getLength(); i++) {
+			NamedNodeMap childNodeAttributes = nodes.item(i).getAttributes();
+			addNodeToList(adList, nodes, i,childNodeAttributes);
+		}
+	}
+
+	private void addNodeToList(List<org.w3c.dom.Node> adList, NodeList nodes, int i,NamedNodeMap childNodeAttributes) {
+		org.w3c.dom.Node ad;
+		Node node = getItemByName(childNodeAttributes,"xmi:type");
+		if (node != null) {
+			String xmiType = node.getTextContent();
+			if (xmiType != null && xmiType.equals("uml:Activity")) {
+				ad = nodes.item(i);
+				adList.add(ad);
+			}
+		}
 	}
 
 	public void resetActivitiesByID() {
@@ -156,57 +204,9 @@ public class ADReader {
 	 * @throws InvalidTagException
 	 */
 	public void retrieveEdges(org.w3c.dom.Node node) throws InvalidTagException {
-		NodeList elements = node.getChildNodes();
-		this.edges = new ArrayList<Edge>();
-
-		for (int s = 0; s < elements.getLength(); s++) {
-			if (elements.item(s).getNodeName().equals("edge")) {
-				Edge tmp;
-				if (elements.item(s).getAttributes().getNamedItem("name") != null) {
-					tmp = new Edge(elements.item(s).getAttributes().getNamedItem("xmi:id")
-							.getTextContent(), elements.item(s).getAttributes()
-							.getNamedItem("name").getTextContent(), elements.item(s)
-							.getAttributes().getNamedItem("xmi:type").getTextContent());
-				} else {
-					tmp = new Edge(elements.item(s).getAttributes().getNamedItem("xmi:id")
-							.getTextContent(), null, elements.item(s).getAttributes()
-							.getNamedItem("xmi:type").getTextContent());
-				}
-				tmp.setSource(this.activitiesByID.get(elements.item(s).getAttributes()
-						.getNamedItem("source").getTextContent()));
-				tmp.setTarget(this.activitiesByID.get(elements.item(s).getAttributes()
-						.getNamedItem("target").getTextContent()));
-
-				NodeList infoNodes = elements.item(s).getChildNodes();
-				for (int i = 0; i < infoNodes.getLength(); i++) {
-					if (infoNodes.item(i).getNodeName().equals("guard")) {
-						NodeList guardNodes = infoNodes.item(i).getChildNodes();
-						for (int j = 0; j < guardNodes.getLength(); j++) {
-							if (guardNodes.item(j).getNodeName().equals("body")) {
-								tmp.setGuard(guardNodes.item(j).getTextContent());
-								break;
-							}
-						}
-						break;
-					}
-				}
-				ProbabilityEnergyTimeProfile profile = ProbabilityEnergyTimeProfileReader.retrieveProbEnergyTime(tmp.getId(), this.doc);
-				if (profile.hasProbability()) {
-				    tmp.setProbability(profile.getProbability());
-				}
-				this.edges.add(tmp);
-			}
-		}
-		resetEdgesByID();
+		EdgeRetriever edgeRetriever = new EdgeRetriever(this);
+		edgeRetriever.retrieveEdges(node);
 	}
-
-	public void resetEdgesByID() {
-		this.edgesByID = new HashMap<String, Edge>();
-		for (Edge e : this.edges) {
-			this.edgesByID.put(e.getId(), e);
-		}
-	}
-
 
 
 	/**
@@ -217,77 +217,55 @@ public class ADReader {
 	 * @param node The node object (i.e. the XMI fragment) representing the whole activity diagram.
 	 */
 	public void solveActivities(org.w3c.dom.Node node) {
-		NodeList elements = node.getChildNodes();
-		for (int s = 0; s < elements.getLength(); s++) {
-			if (elements.item(s).getNodeName().equals("node")) {
-				Activity activity = this.activitiesByID.get(elements.item(s).getAttributes()
-						.getNamedItem("xmi:id").getTextContent());
-				NodeList tmpEdges = elements.item(s).getChildNodes();
-				for (int t = 0; t < tmpEdges.getLength(); t++) {
-					if (tmpEdges.item(t).getNodeName().equals("incoming")) {
-						activity.addIncoming(this.edgesByID.get(tmpEdges.item(t).getAttributes()
-								.getNamedItem("xmi:idref").getTextContent()));
-					} else if (tmpEdges.item(t).getNodeName().equals("outgoing")) {
-						activity.addOutgoing(this.edgesByID.get(tmpEdges.item(t).getAttributes()
-								.getNamedItem("xmi:idref").getTextContent()));
-					}
-				}
+		NodeList childNodes = node.getChildNodes();
+		for (int s = 0; s < childNodes.getLength(); s++) {
+			NamedNodeMap childNodeAttributes = childNodes.item(s).getAttributes();
+			if (childNodes.item(s).getNodeName().equals("node")) {
+				Activity activity = getActivity(childNodeAttributes); 
+				addOutgoingNIncoming(childNodes, s, activity);
 			}
 		}
 		orderActivities();
 	}
 
+	private Activity getActivity(NamedNodeMap childNodeAttributes) {
+		return this.activitiesByID.get(
+				getItemByName(childNodeAttributes, "xmi:id").getTextContent());
+	}
 
+	private void addOutgoingNIncoming(NodeList childNodes, int s, Activity activity) {
+		NodeList tmpEdges = childNodes.item(s).getChildNodes();
+		
+		for (int t = 0; t < tmpEdges.getLength(); t++) {
+			NamedNodeMap edgeAttributes = tmpEdges.item(t).getAttributes();
+			String edgeText = getItemByName(edgeAttributes, "xmi:idref").getTextContent();
+			String edgeType = tmpEdges.item(t).getNodeName();
+			
+			if (edgeType.equals("incoming")) {
+				activity.addIncoming(getEdge(edgeText));
+			} else if (edgeType.equals("outgoing")) {
+				activity.addOutgoing(getEdge(edgeText));
+			}
+		}
+	}
 
+	private Edge getEdge(String edgeText) {
+		return this.edgesByID.get(edgeText);
+	}
+
+	public void setEdgesByID(Map<String, Edge> edgesByID) {
+		this.edgesByID = edgesByID;
+	}
+
+	public Map<String, Edge> getEdgesByID() {
+		return edgesByID;
+	}
 
 	/**
 	 * This function is used to order the activities of a sequence diagram.
 	 */
 	public void orderActivities() {
-		int i = 0, j;
-		Queue<Activity> queue = new LinkedList<Activity>();
-		Activity target, temp;
-
-		j = -1;
-		for (Activity a : this.activities) {
-			j++;
-			if (a.getType().equals(ActivityType.INITIAL_NODE)) {
-				if (!this.activities.get(i).equals(a)) { // PEGAR EXEMPLO P
-															// TESTAR AQUI
-					temp = this.activities.get(i);
-					this.activities.set(i, this.activities.get(j));
-					this.activities.set(j, temp);
-				}
-				a.setOrdered(true);
-				i++;
-				queue.add(a);
-				break;
-			}
-		}
-
-		while (!queue.isEmpty()) {
-			for (Edge e : queue.element().getOutgoing()) {
-				target = e.getTarget();
-				if (!target.isOrdered()) { // nao esta ordenado
-					if (!this.activities.get(i).equals(target)) { // ordem errada
-						j = -1;
-						for (Activity a : this.activities) {
-							j++;
-							if (a.equals(target)) { // j:posicao do target
-													// i:posicao atual ordenacao
-								temp = this.activities.get(i);
-								this.activities.set(i, this.activities.get(j));
-								this.activities.set(j, temp);
-								break;
-							}
-						}
-					}
-					target.setOrdered(true); // marca ordem target certa
-					i++;
-					queue.add(target); // poe target na fila
-				}
-			}
-			queue.poll(); // tira o primeiro da fila
-		}
+		ActivitySort activitieSort = new ActivitySort(this);
+		activitieSort.orderActivities();
 	}
 }
