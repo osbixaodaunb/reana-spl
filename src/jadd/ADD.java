@@ -33,7 +33,7 @@ public class ADD {
     private Pointer<DdNode> function;
     private Pointer<DdManager> dd;
     private VariableStore variableStore;
-
+    
     ADD(Pointer<DdManager> dd, Pointer<DdNode> function, VariableStore variableStore) {
         this.dd = dd;
         this.function = function;
@@ -132,17 +132,7 @@ public class ADD {
     }
 
     public Set<String> getVariables() {
-        Set<String> variables = new HashSet<String>();
-
-        Pointer<Integer> variablesPtr = BigcuddLibrary.Cudd_SupportIndex(dd, this.function);
-        int numVars = BigcuddLibrary.Cudd_ReadSize(dd);
-        int[] variablesPresence = variablesPtr.getInts(numVars);
-        for (short i = 0; i < numVars; i++) {
-            if (variablesPresence[i] == 1) {
-                variables.add(variableStore.getName(i));
-            }
-        }
-        return variables;
+        return new VariableGetter(this).getVariables();
     }
 
     public List<String> getVariableOrder() {
@@ -308,6 +298,18 @@ public class ADD {
 
     Pointer<DdNode> getUnderlyingNode() {
         return this.function;
+    }
+    
+    public Pointer<DdNode> getFunction() {
+    	return this.function;
+    }
+    
+    public Pointer<DdManager> getDD() {
+    	return this.dd;
+    }
+    
+    public VariableStore getVariableStore() {
+    	return this.variableStore;
     }
 
     /**************************************************************
