@@ -413,7 +413,8 @@ public class ADD {
         @Override
         public boolean tryAdvance(Consumer<? super Collection<String>> action) {
             if (expandedIterator == null || !expandedIterator.hasNext()) {
-                if (BigcuddLibrary.Cudd_IsGenEmpty(generator) == 0) {
+                final boolean isGeneratorEmpty = BigcuddLibrary.Cudd_IsGenEmpty(generator) == 0;
+            	if (isGeneratorEmpty) {
                     Pointer<Integer> cube = cubePtr.getPointer(Integer.class);
                     int[] presenceVector = cube.getInts(numVars);
                     List<String> configuration = variableStore.fromPresenceVector(presenceVector);
