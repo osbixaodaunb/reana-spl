@@ -215,36 +215,53 @@ public class ADD {
      * @return
      */
     static Collection<List<String>> expandDontCares(Iterator<String> cursor) {
-        Set<List<String>> expanded = new HashSet<List<String>>();
+       
         List<String> prefix = new LinkedList<String>();
         while (cursor.hasNext()) {
             String variable = cursor.next();
             if (variable.startsWith("(")) {
-                // We must generate two alternative prefixes: one with the
-                // variable in positive form and another with it in negative
-                // form (i.e., omitted).
-                List<String> complementedPrefix = new LinkedList<String>(prefix);
-                String deparenthesized = variable.substring(1, variable.length()-1);
-                prefix.add(deparenthesized);
-                // Then we must expand the rest of the configuration and append
-                // each of the expanded sub-configurations to the alternative prefixes.
-                Collection<List<String>> expandedTail = expandDontCares(cursor);
-                for (List<String> expandedSubconfig : expandedTail) {
-                    List<String> positive = new LinkedList<String>(prefix);
-                    List<String> complemented = new LinkedList<String>(complementedPrefix);
-                    positive.addAll(expandedSubconfig);
-                    complemented.addAll(expandedSubconfig);
-                    expanded.add(positive);
-                    expanded.add(complemented);
-                }
-                return expanded;
+            	return generatePositiveComplementedVar(cursor, prefix, variable);
             } else {
                 prefix.add(variable);
             }
         }
+        Set<List<String>> expanded = new HashSet<List<String>>();
+        
         expanded.add(prefix);
         return expanded;
     }
+
+	private static Collection<List<String>> generatePositiveComplementedVar(Iterator<String> cursor,
+			List<String> prefix, String variable) {
+		// We must generate two alternative prefixes: one with the
+		// variable in positive form and another with it in negative
+		// form (i.e., omitted).
+		List<String> complementedPrefix = new LinkedList<String>(prefix);
+		String deparenthesized = variable.substring(1, variable.length()-1);
+		prefix.add(deparenthesized);
+		// Then we must expand the rest of the configuration and append
+		// each of the expanded sub-configurations to the alternative prefixes.
+		Collection<List<String>> expandedTail = expandDontCares(cursor);
+		Set<List<String>> expanded;
+		expanded = fillExpanded(prefix, complementedPrefix, expandedTail);
+		return expanded;
+	}
+
+	private static Set<List<String>> fillExpanded(List<String> prefix, List<String> complementedPrefix,
+			Collection<List<String>> expandedTail) {
+		Set<List<String>> expanded = new HashSet<List<String>>();
+		
+		for (List<String> expandedSubconfig : expandedTail) {
+		    List<String> positive = new LinkedList<String>(prefix);
+		    List<String> complemented = new LinkedList<String>(complementedPrefix);
+		    positive.addAll(expandedSubconfig);
+		    complemented.addAll(expandedSubconfig);
+		    expanded.add(positive);
+		    expanded.add(complemented);
+		}
+		
+		return expanded;
+	}
 
     /* (non-Javadoc)
      * @see java.lang.Object#equals(java.lang.Object)
