@@ -238,12 +238,13 @@ public class ADD {
 		// form (i.e., omitted).
 		List<String> complementedPrefix = new LinkedList<String>(prefix);
 		String deparenthesized = variable.substring(1, variable.length()-1);
-		prefix.add(deparenthesized);
+		List<String> prefix_ = prefix;
+		prefix_.add(deparenthesized);
 		// Then we must expand the rest of the configuration and append
 		// each of the expanded sub-configurations to the alternative prefixes.
 		Collection<List<String>> expandedTail = expandDontCares(cursor);
 		Set<List<String>> expanded;
-		expanded = fillExpanded(prefix, complementedPrefix, expandedTail);
+		expanded = fillExpanded(prefix_, complementedPrefix, expandedTail);
 		return expanded;
 	}
 
