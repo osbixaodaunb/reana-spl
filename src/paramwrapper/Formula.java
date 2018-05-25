@@ -14,10 +14,10 @@ public class Formula {
 	}
 	
 	public String getCurrentFormula(String modelString, String property, ParamModel model) throws IOException {
-		modelFile = writeModelFile(modelString);
-
-		propertyFile = writePropertyFile(property);
-
+		modelFile = File.createTempFile("model", "param");
+		writeFile(modelString, modelFile);
+		propertyFile = File.createTempFile("property", "prop");
+		writeFile(property, propertyFile);
 		resultsFile = File.createTempFile("result", null);
 
 		String formula;
@@ -37,23 +37,12 @@ public class Formula {
 		}
 		return formula;
 	}
-	
-	private File writePropertyFile(String property) throws IOException {
-		File propertyFile = File.createTempFile("property", "prop");
-		FileWriter propertyWriter = new FileWriter(propertyFile);
-		propertyWriter.write(property);
-		propertyWriter.flush();
-		propertyWriter.close();
-		return propertyFile;
-	}
-
-	private File writeModelFile(String modelString) throws IOException {
-		File modelFile = File.createTempFile("model", "param");
-		FileWriter modelWriter = new FileWriter(modelFile);
-		modelWriter.write(modelString);
-		modelWriter.flush();
-		modelWriter.close();
-		return modelFile;
+		
+	private void writeFile(String modelString, File file) throws IOException {
+		FileWriter fileWriter = new FileWriter(file);
+		fileWriter.write(modelString);
+		fileWriter.flush();
+		fileWriter.close();
 	}
 	
 	

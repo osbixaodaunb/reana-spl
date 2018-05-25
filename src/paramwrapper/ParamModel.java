@@ -115,14 +115,7 @@ class ParamModel {
 		for (String parameter : parameters) {
 			params += "param double "+parameter+";\n";
 		}
-		String module =
-				"dtmc\n" +
-				"\n" +
-				params +
-				"\n" +
-				"module " + moduleName + "\n" +
-				"	"+stateVariable+ " : ["+stateRangeStart+".."+stateRangeEnd+"] init "+initialState+";" +
-				"\n";
+		String module = buildModule(params);
 		for (Command command : commands.values()) {
 			module += "	"+command.makeString(stateVariable) + "\n";
 		}
@@ -142,6 +135,14 @@ class ParamModel {
 			}
 			module += ";\n";
 		}
+		return module;
+	}
+	
+	private String buildModule(String params) {
+		String dtmc = "dtmc\n\n";
+		String moduleArgs = "module " + this.moduleName + "\n" + "	";
+		String stateArgs = this.stateVariable+ " : ["+stateRangeStart+".."+stateRangeEnd+"] init "+initialState+";";
+		String module = dtmc + params + "\n" + moduleArgs + stateArgs + "\n";
 		return module;
 	}
 }
