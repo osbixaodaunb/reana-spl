@@ -33,7 +33,7 @@ public class ADD {
     private Pointer<DdNode> function;
     private Pointer<DdManager> dd;
     private VariableStore variableStore;
-
+    
     ADD(Pointer<DdManager> dd, Pointer<DdNode> function, VariableStore variableStore) {
         this.dd = dd;
         this.function = function;
@@ -132,17 +132,7 @@ public class ADD {
     }
 
     public Set<String> getVariables() {
-        Set<String> variables = new HashSet<String>();
-
-        Pointer<Integer> variablesPtr = BigcuddLibrary.Cudd_SupportIndex(dd, this.function);
-        int numVars = BigcuddLibrary.Cudd_ReadSize(dd);
-        int[] variablesPresence = variablesPtr.getInts(numVars);
-        for (short i = 0; i < numVars; i++) {
-            if (variablesPresence[i] == 1) {
-                variables.add(variableStore.getName(i));
-            }
-        }
-        return variables;
+        return new VariableGetter(this).getVariables();
     }
 
     public List<String> getVariableOrder() {
@@ -225,36 +215,54 @@ public class ADD {
      * @return
      */
     static Collection<List<String>> expandDontCares(Iterator<String> cursor) {
-        Set<List<String>> expanded = new HashSet<List<String>>();
+       
         List<String> prefix = new LinkedList<String>();
         while (cursor.hasNext()) {
             String variable = cursor.next();
             if (variable.startsWith("(")) {
-                // We must generate two alternative prefixes: one with the
-                // variable in positive form and another with it in negative
-                // form (i.e., omitted).
-                List<String> complementedPrefix = new LinkedList<String>(prefix);
-                String deparenthesized = variable.substring(1, variable.length()-1);
-                prefix.add(deparenthesized);
-                // Then we must expand the rest of the configuration and append
-                // each of the expanded sub-configurations to the alternative prefixes.
-                Collection<List<String>> expandedTail = expandDontCares(cursor);
-                for (List<String> expandedSubconfig : expandedTail) {
-                    List<String> positive = new LinkedList<String>(prefix);
-                    List<String> complemented = new LinkedList<String>(complementedPrefix);
-                    positive.addAll(expandedSubconfig);
-                    complemented.addAll(expandedSubconfig);
-                    expanded.add(positive);
-                    expanded.add(complemented);
-                }
-                return expanded;
+            	return generatePositiveComplementedVar(cursor, prefix, variable);
             } else {
                 prefix.add(variable);
             }
         }
+        Set<List<String>> expanded = new HashSet<List<String>>();
+        
         expanded.add(prefix);
         return expanded;
     }
+
+	private static Collection<List<String>> generatePositiveComplementedVar(Iterator<String> cursor,
+			List<String> prefix, String variable) {
+		// We must generate two alternative prefixes: one with the
+		// variable in positive form and another with it in negative
+		// form (i.e., omitted).
+		List<String> complementedPrefix = new LinkedList<String>(prefix);
+		String deparenthesized = variable.substring(1, variable.length()-1);
+		List<String> prefix_ = prefix;
+		prefix_.add(deparenthesized);
+		// Then we must expand the rest of the configuration and append
+		// each of the expanded sub-configurations to the alternative prefixes.
+		Collection<List<String>> expandedTail = expandDontCares(cursor);
+		Set<List<String>> expanded;
+		expanded = fillExpanded(prefix_, complementedPrefix, expandedTail);
+		return expanded;
+	}
+
+	private static Set<List<String>> fillExpanded(List<String> prefix, List<String> complementedPrefix,
+			Collection<List<String>> expandedTail) {
+		Set<List<String>> expanded = new HashSet<List<String>>();
+		
+		for (List<String> expandedSubconfig : expandedTail) {
+		    List<String> positive = new LinkedList<String>(prefix);
+		    List<String> complemented = new LinkedList<String>(complementedPrefix);
+		    positive.addAll(expandedSubconfig);
+		    complemented.addAll(expandedSubconfig);
+		    expanded.add(positive);
+		    expanded.add(complemented);
+		}
+		
+		return expanded;
+	}
 
     /* (non-Javadoc)
      * @see java.lang.Object#equals(java.lang.Object)
@@ -308,6 +316,18 @@ public class ADD {
 
     Pointer<DdNode> getUnderlyingNode() {
         return this.function;
+    }
+    
+    public Pointer<DdNode> getFunction() {
+    	return this.function;
+    }
+    
+    public Pointer<DdManager> getDD() {
+    	return this.dd;
+    }
+    
+    public VariableStore getVariableStore() {
+    	return this.variableStore;
     }
 
     /**************************************************************
@@ -393,7 +413,8 @@ public class ADD {
         @Override
         public boolean tryAdvance(Consumer<? super Collection<String>> action) {
             if (expandedIterator == null || !expandedIterator.hasNext()) {
-                if (BigcuddLibrary.Cudd_IsGenEmpty(generator) == 0) {
+                final boolean isGeneratorEmpty = BigcuddLibrary.Cudd_IsGenEmpty(generator) == 0;
+            	if (isGeneratorEmpty) {
                     Pointer<Integer> cube = cubePtr.getPointer(Integer.class);
                     int[] presenceVector = cube.getInts(numVars);
                     List<String> configuration = variableStore.fromPresenceVector(presenceVector);
