@@ -76,56 +76,18 @@ public class ParamWrapper implements ParametricModelChecker {
 	}
 
 	private String getCurrentFormula(String modelString, String property, ParamModel model) throws IOException {
-		File modelFile = writeModelFile(modelString);
-
-		File propertyFile = writePropertyFile(property);
-
-		File resultsFile = File.createTempFile("result", null);
-
-		String formula;
-		if (usePrism && !modelString.contains("const")) {
-		    formula = invokeModelChecker(modelFile.getAbsolutePath(),
-		                                 propertyFile.getAbsolutePath(),
-		                                 resultsFile.getAbsolutePath());
-		} else if(usePrism) {
-		    formula = invokeParametricPRISM(model,
-		                                    modelFile.getAbsolutePath(),
-		                                    propertyFile.getAbsolutePath(),
-		                                    resultsFile.getAbsolutePath());
-		} else {
-		    formula = invokeParametricModelChecker(modelFile.getAbsolutePath(),
-		                                           propertyFile.getAbsolutePath(),
-		                                           resultsFile.getAbsolutePath());
-		}
-		return formula;
+		Formula formula = new Formula(this);
+		return formula.getCurrentFormula(modelString, property, model);
 	}
 
-	private File writePropertyFile(String property) throws IOException {
-		File propertyFile = File.createTempFile("property", "prop");
-		FileWriter propertyWriter = new FileWriter(propertyFile);
-		propertyWriter.write(property);
-		propertyWriter.flush();
-		propertyWriter.close();
-		return propertyFile;
-	}
-
-	private File writeModelFile(String modelString) throws IOException {
-		File modelFile = File.createTempFile("model", "param");
-		FileWriter modelWriter = new FileWriter(modelFile);
-		modelWriter.write(modelString);
-		modelWriter.flush();
-		modelWriter.close();
-		return modelFile;
-	}
-
-	private String invokeParametricModelChecker(String modelPath,
+	public String invokeParametricModelChecker(String modelPath,
 												String propertyPath,
 												String resultsPath) throws IOException {
 		String commandLine = buildCommandLine(modelPath, propertyPath, "--result-file ", resultsPath);
 		return invokeAndGetResult(commandLine, resultsPath+".out");
 	}
 
-    private String invokeParametricPRISM(ParamModel model,
+    public String invokeParametricPRISM(ParamModel model,
                                          String modelPath,
                                          String propertyPath,
                                          String resultsPath) throws IOException {
@@ -142,7 +104,7 @@ public class ParamWrapper implements ParametricModelChecker {
     	return paramPath+" "+modelPath+" "+propertyPath+" "+result+resultsPath;
     }
 
-	private String invokeModelChecker(String modelPath,
+	public String invokeModelChecker(String modelPath,
 									  String propertyPath,
 									  String resultsPath) throws IOException {
 		String commandLine = buildCommandLine(modelPath, propertyPath, "-exportresults ", resultsPath);
@@ -163,6 +125,10 @@ public class ParamWrapper implements ParametricModelChecker {
 		lines.removeIf(String::isEmpty);
 		// Formula
 		return lines.get(lines.size()-1);
+	}
+	
+	public boolean getPrism() {
+		return this.usePrism;
 	}
 
 }
