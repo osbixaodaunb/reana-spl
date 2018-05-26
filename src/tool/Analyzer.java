@@ -7,6 +7,7 @@ import jadd.ADD;
 import jadd.JADD;
 
 import java.io.IOException;
+import java.lang.reflect.Constructor;
 import java.util.Collection;
 import java.util.stream.Stream;
 
@@ -89,11 +90,20 @@ public class Analyzer {
         // be able to generate an optimal ordering right after parsing it.
         jadd.reorderVariables();
 
-        this.timeCollector = (timeCollector != null) ? timeCollector : new NoopTimeCollector();
+        initializeCollectors(paramPath, timeCollector, formulaCollector, modelCollector);
+
+        initializeAnalyzers();
+    }
+
+	private void initializeCollectors(String paramPath, ITimeCollector timeCollector,
+			IFormulaCollector formulaCollector, IModelCollector modelCollector) {
+		this.timeCollector = (timeCollector != null) ? timeCollector : new NoopTimeCollector();
         this.formulaCollector = (formulaCollector != null) ? formulaCollector : new NoopFormulaCollector();
         this.modelChecker = (modelCollector != null) ? new ParamWrapper(paramPath, modelCollector) : new ParamWrapper(paramPath);
+	}
 
-        this.featureFamilyBasedAnalyzerImpl = new FeatureFamilyBasedAnalyzer(this.jadd,
+	private void initializeAnalyzers() {
+		this.featureFamilyBasedAnalyzerImpl = new FeatureFamilyBasedAnalyzer(this.jadd,
                                                                              this.featureModel,
                                                                              this.modelChecker,
                                                                              this.timeCollector,
@@ -115,7 +125,8 @@ public class Analyzer {
                                                                              this.modelChecker,
                                                                              this.timeCollector,
                                                                              this.formulaCollector);
-    }
+	}
+	
 
     /**
      * Returns the set of all valid configurations according to the feature model.
