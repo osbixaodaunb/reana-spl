@@ -7,6 +7,7 @@ import jadd.ADD;
 import jadd.JADD;
 
 import java.io.IOException;
+import java.lang.reflect.Constructor;
 import java.util.Collection;
 import java.util.stream.Stream;
 
@@ -125,6 +126,7 @@ public class Analyzer {
                                                                              this.timeCollector,
                                                                              this.formulaCollector);
 	}
+	
 
     /**
      * Returns the set of all valid configurations according to the feature model.
