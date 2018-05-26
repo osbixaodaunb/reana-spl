@@ -33,7 +33,6 @@ public class SDReader {
     private static final Logger LOGGER = Logger.getLogger(SDReader.class.getName());
 
 		private int index;
-		private boolean next;
 		private Map<Lifeline, List<String>> coverage;
 		private Map<String, Lifeline> lifelinesByID;
 		private Map<String, Message> messagesByID;
@@ -69,7 +68,6 @@ public class SDReader {
 		 */
 		public void traceDiagram() throws UnsupportedFragmentTypeException, InvalidTagException {
 			NodeList nodes = this.doc.getElementsByTagName("ownedBehavior");
-			this.next = (this.index == nodes.getLength() - 1) ? false : true;
 
 			org.w3c.dom.Node n = nodes.item(this.index);
 			NamedNodeMap nAttrs = n.getAttributes();
@@ -83,6 +81,10 @@ public class SDReader {
 
 			this.sd.setLifelines(this.lifelines);
 
+			addFragmentNodes(n);
+		}
+
+		private void addFragmentNodes(org.w3c.dom.Node n) throws UnsupportedFragmentTypeException, InvalidTagException {
 			NodeList nChilds = n.getChildNodes();
 			for (int i = 0; i < nChilds.getLength(); i++) {
 
@@ -110,7 +112,6 @@ public class SDReader {
 						newFragment.setProfile(profile);
 						this.sd.addNode(newFragment);
 						traceFragment(newFragment, child);
-
 					}
 				}
 			}
@@ -138,6 +139,27 @@ public class SDReader {
 		private void retrieveLifelines(org.w3c.dom.Node node) throws InvalidTagException, UnsupportedFragmentTypeException {
 			NodeList elements = node.getChildNodes();
 
+			initLifelines(elements);
+
+			formatLifelines(elements);
+		}
+
+		private void formatLifelines(NodeList elements) {
+			for (int s = 0; s < elements.getLength(); s++) {
+				if (elements.item(s).getNodeName().equals("ownedAttribute")) {
+					for (int j = 0; j < this.lifelines.size(); j++) {
+						if (this.lifelines.get(j).getLink().equals(
+								elements.item(s).getAttributes().getNamedItem("xmi:id")
+										.getTextContent())) {
+							this.lifelines.get(j).setName(elements.item(s).getAttributes()
+									.getNamedItem("name").getTextContent().replace('\n', ' '));
+						}
+					}
+				}
+			}
+		}
+
+		private void initLifelines(NodeList elements) {
 			for (int s = 0; s < elements.getLength(); s++) {
 
 				if (elements.item(s).getNodeName().equals("lifeline")) {
@@ -161,19 +183,6 @@ public class SDReader {
 					this.lifelinesByID.put(tmp.getId(), tmp);
 				}
 			}
-
-			for (int s = 0; s < elements.getLength(); s++) {
-				if (elements.item(s).getNodeName().equals("ownedAttribute")) {
-					for (int j = 0; j < this.lifelines.size(); j++) {
-						if (this.lifelines.get(j).getLink().equals(
-								elements.item(s).getAttributes().getNamedItem("xmi:id")
-										.getTextContent())) {
-							this.lifelines.get(j).setName(elements.item(s).getAttributes()
-									.getNamedItem("name").getTextContent().replace('\n', ' '));
-						}
-					}
-				}
-			}
 		}
 
 		/**
@@ -192,31 +201,43 @@ public class SDReader {
 						message.setName(sAttrs.getNamedItem("name").getTextContent().replace("\n", " "));
 					}
 
-					for (Lifeline l: this.lifelines) {
-						if (this.coverage.get(l).contains(sAttrs.getNamedItem("sendEvent").getTextContent())) {
-							message.setSender(l);
-						}
-						if (this.coverage.get(l).contains(sAttrs.getNamedItem("receiveEvent").getTextContent())) {
-							message.setReceiver(l);
-						}
-					}
+					handleMessageEvent(sAttrs, message);
 
-					if (sAttrs.getNamedItem("messageSort") != null) {
-					    String messageSortContent = sAttrs.getNamedItem("messageSort").getTextContent();
-						if ("asynchCall".equals(messageSortContent) || "asynchSignal".equals(messageSortContent)) {
-							message.setType(MessageType.ASYNCHRONOUS);
-						} else if ("reply".equals(messageSortContent)) {
-							message.setType(MessageType.REPLY);
-						}
-					} else {
-						message.setType(MessageType.SYNCHRONOUS);
-					}
+					setMessageType(sAttrs, message);
 
-					ProbabilityEnergyTimeProfile profile = ProbabilityEnergyTimeProfileReader.retrieveProbEnergyTime(message.getId(), this.doc);
-					message.setProfile(profile);
-					this.messages.add(message);
-					this.messagesByID.put(message.getId(), message);
+					addMessage(message);
 				}
+			}
+		}
+
+		private void addMessage(Message message) throws InvalidTagException {
+			ProbabilityEnergyTimeProfile profile = ProbabilityEnergyTimeProfileReader.retrieveProbEnergyTime(message.getId(), this.doc);
+			message.setProfile(profile);
+			this.messages.add(message);
+			this.messagesByID.put(message.getId(), message);
+		}
+
+		private void handleMessageEvent(NamedNodeMap sAttrs, Message message) {
+			for (Lifeline l: this.lifelines) {
+				if (this.coverage.get(l).contains(sAttrs.getNamedItem("sendEvent").getTextContent())) {
+					message.setSender(l);
+				}
+				if (this.coverage.get(l).contains(sAttrs.getNamedItem("receiveEvent").getTextContent())) {
+					message.setReceiver(l);
+				}
+			}
+		}
+
+		private void setMessageType(NamedNodeMap sAttrs, Message message) {
+			if (sAttrs.getNamedItem("messageSort") != null) {
+			    String messageSortContent = sAttrs.getNamedItem("messageSort").getTextContent();
+				if ("asynchCall".equals(messageSortContent) || "asynchSignal".equals(messageSortContent)) {
+					message.setType(MessageType.ASYNCHRONOUS);
+				} else if ("reply".equals(messageSortContent)) {
+					message.setType(MessageType.REPLY);
+				}
+			} else {
+				message.setType(MessageType.SYNCHRONOUS);
 			}
 		}
 
@@ -232,46 +253,54 @@ public class SDReader {
 			NodeList oChilds = node.getChildNodes();
 
 			for (int k = 0; k < oChilds.getLength(); k++) {
-
 				org.w3c.dom.Node itemK = oChilds.item(k);
                 if ("fragment".equals(itemK.getNodeName())) {
-
-					NamedNodeMap kAttrs = itemK.getAttributes();
-					String typeContent = kAttrs.getNamedItem("xmi:type").getTextContent();
-					if ("uml:MessageOccurrenceSpecification".equals(typeContent)) {
-
-						String msgID = kAttrs.getNamedItem("message").getTextContent();
-						operand.addNode(this.messagesByID.get(msgID));
-						k+=2;
-
-					} else if ("uml:CombinedFragment".equals(typeContent)) {
-
-						Fragment innerFragment =
-									new Fragment(
-										extractId(kAttrs),
-										kAttrs.getNamedItem("interactionOperator").getTextContent(),
-										extractName(kAttrs)
-									);
-
-						ProbabilityEnergyTimeProfile profile = ProbabilityEnergyTimeProfileReader.retrieveProbEnergyTime(innerFragment.getId(), this.doc);
-                        innerFragment.setProfile(profile);
-						operand.addNode(innerFragment);
-						traceFragment(innerFragment, itemK);
-					}
-
+					k = handleFragmentNode(operand, k, itemK);
 				} else if ("guard".equals(itemK.getNodeName())) {
-					NodeList kChilds = itemK.getChildNodes();
-					for (int l = 0; l < kChilds.getLength(); l++) {
-					    org.w3c.dom.Node itemL = kChilds.item(l);
-						if ("specification".equals(itemL.getNodeName())) {
-							operand.setGuard(itemL.getAttributes()
-									.getNamedItem("value").getTextContent());
-
-							break;
-						}
-					}
+					handleGuardNode(operand, itemK);
 				}
 			}
+		}
+
+		private void handleGuardNode(Operand operand, org.w3c.dom.Node itemK) {
+			NodeList kChilds = itemK.getChildNodes();
+			for (int l = 0; l < kChilds.getLength(); l++) {
+			    org.w3c.dom.Node itemL = kChilds.item(l);
+				if ("specification".equals(itemL.getNodeName())) {
+					operand.setGuard(itemL.getAttributes()
+							.getNamedItem("value").getTextContent());
+
+					break;
+				}
+			}
+		}
+
+		private int handleFragmentNode(Operand operand, int k, org.w3c.dom.Node itemK)
+				throws UnsupportedFragmentTypeException, InvalidTagException {
+			NamedNodeMap kAttrs = itemK.getAttributes();
+			String typeContent = kAttrs.getNamedItem("xmi:type").getTextContent();
+			if ("uml:MessageOccurrenceSpecification".equals(typeContent)) {
+
+				String msgID = kAttrs.getNamedItem("message").getTextContent();
+				operand.addNode(this.messagesByID.get(msgID));
+				k+=2;
+
+			} else if ("uml:CombinedFragment".equals(typeContent)) {
+
+				Fragment innerFragment =
+							new Fragment(
+								extractId(kAttrs),
+								kAttrs.getNamedItem("interactionOperator").getTextContent(),
+								extractName(kAttrs)
+							);
+
+				ProbabilityEnergyTimeProfile profile = ProbabilityEnergyTimeProfileReader.retrieveProbEnergyTime(innerFragment.getId(), this.doc);
+			    innerFragment.setProfile(profile);
+				operand.addNode(innerFragment);
+				traceFragment(innerFragment, itemK);
+			}
+			
+			return k;
 		}
 
 		/**
@@ -311,11 +340,9 @@ public class SDReader {
 		}
 
 		public boolean hasNext() {
-			return next;
-		}
-
-		public void setNext(boolean next) {
-			this.next = next;
+			NodeList nodes = this.doc.getElementsByTagName("ownedBehavior");
+			
+			return (this.index == nodes.getLength() - 1) ? false : true;
 		}
 
 		public Map<Lifeline, List<String>> getCoverage() {
